@@ -95,7 +95,9 @@ const events = {
     'dominant-speaker-changed': 'dominantSpeakerChanged',
     'subject-change': 'subjectChange',
     'suspend-detected': 'suspendDetected',
-    'tile-view-changed': 'tileViewChanged'
+    'tile-view-changed': 'tileViewChanged',
+
+    'extraction-ready': 'extractionReady'
 };
 
 /**
@@ -1103,5 +1105,17 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      */
     stopRecording(mode) {
         this.executeCommand('startRecording', mode);
+    }
+
+    /**
+     * Extract a file from a API endpoint.
+     *
+     * @param {string} file - `file`.
+     * @returns {void}
+     */
+    extractionReady(file) {
+        console.log(file);
+
+        return true;
     }
 }
