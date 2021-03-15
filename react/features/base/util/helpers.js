@@ -1,5 +1,7 @@
 // @flow
 
+import clipboardCopy from 'clipboard-copy';
+
 /**
  * A helper function that behaves similar to Object.assign, but only reassigns a
  * property in target if it's defined in source.
@@ -29,18 +31,16 @@ export function assignIfDefined(target: Object, source: Object) {
  * Returns true if the action succeeds.
  *
  * @param {string} textToCopy - Text to be copied.
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
 export async function copyText(textToCopy: string) {
-    let result;
-
     try {
-        result = await navigator.clipboard.writeText(textToCopy);
-    } catch (err) {
-        result = false;
-    }
+        await clipboardCopy(textToCopy);
 
-    return result;
+        return true;
+    } catch (e) {
+        return false;
+    }
 }
 
 /**
