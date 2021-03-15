@@ -41,6 +41,7 @@
     "amplitude-js": "7.3.3",
     "base64-js": "1.3.1",
     "bc-css-flags": "3.0.0",
+    "clipboard-copy": "4.0.1",
     "dropbox": "4.0.9",
     "focus-visible": "5.1.0",
     "i18n-iso-countries": "3.7.8",
@@ -54,10 +55,10 @@
     "jquery-i18next": "1.2.1",
     "js-md5": "0.6.1",
     "jwt-decode": "2.2.0",
-    "lib-jitsi-meet": "github:jitsi/lib-jitsi-meet#f1ec96678002a88a0a87bb0a6fec1f5d642813d2",
+    "lib-jitsi-meet": "github:jitsi/lib-jitsi-meet#676c7a910505833810314a665ad1e825a158850c",
     "libflacjs": "github:mmig/libflac.js#93d37e7f811f01cf7d8b6a603e38bd3c3810907d",
     "lodash": "4.17.21",
-    "moment": "2.19.4",
+    "moment": "2.29.1",
     "moment-duration-format": "2.2.2",
     "olm": "https://packages.matrix.org/npm/olm/olm-3.2.1.tgz",
     "pixelmatch": "5.1.0",
@@ -83,7 +84,7 @@
     "react-native-svg-transformer": "0.14.3",
     "react-native-url-polyfill": "1.2.0",
     "react-native-watch-connectivity": "0.4.3",
-    "react-native-webrtc": "1.87.3",
+    "react-native-webrtc": "github:react-native-webrtc/react-native-webrtc#1066b92d48048d67ff23288d68ab1734ec364cab",
     "react-native-webview": "11.0.2",
     "react-native-youtube-iframe": "1.2.3",
     "react-redux": "7.1.0",
@@ -147,7 +148,10 @@
   "scripts": {
     "lint": "eslint . && flow",
     "postinstall": "jetify",
-    "validate": "npm ls"
+    "validate": "npm ls",
+    "start": "make dev",
+    "ios": "react-native run-ios",
+    "android": "react-native run-android"
   },
   "browser": {
     "jQuery-Impromptu": "jQuery-Impromptu/src/jquery-impromptu.js"
