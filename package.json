@@ -55,7 +55,7 @@
     "jquery-i18next": "1.2.1",
     "js-md5": "0.6.1",
     "jwt-decode": "2.2.0",
-    "lib-jitsi-meet": "github:jitsi/lib-jitsi-meet#676c7a910505833810314a665ad1e825a158850c",
+    "lib-jitsi-meet": "file:../lib-jitsi-meet-extraction",
     "libflacjs": "github:mmig/libflac.js#93d37e7f811f01cf7d8b6a603e38bd3c3810907d",
     "lodash": "4.17.21",
     "moment": "2.29.1",
@@ -99,7 +99,7 @@
     "uuid": "3.1.0",
     "wasm-check": "2.0.1",
     "windows-iana": "^3.1.0",
-    "xmldom": "0.1.27",
+    "xmldom": "^0.5.0",
     "zxcvbn": "4.4.2"
   },
   "devDependencies": {
