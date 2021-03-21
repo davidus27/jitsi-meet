@@ -1261,6 +1261,10 @@ export default {
         downloadJSON(logs, filename);
     },
 
+    downloadFile(object, name = 'extracted.file') {
+        downloadJSON(JSON.stringify(object), name);
+    },
+
     /**
      * Exposes a Command(s) API on this instance. It is necessitated by (1) the
      * desire to keep room private to this instance and (2) the need of other
@@ -1932,7 +1936,7 @@ export default {
             titleKey
         });
     },
-    
+
     /**
      * Setup interaction between conference and UI.
      */
@@ -2122,16 +2126,16 @@ export default {
         
         room.on(JitsiConferenceEvents.MESSAGE_RECEIVED, 
             (...args) => {
-            console.log("MESSAGE RECEIVED: ", args);
-        });
+                console.log('MESSAGE RECEIVED: ', args);
+            });
         room.on(
             JitsiConferenceEvents.ENDPOINT_MESSAGE_RECEIVED,
             (...args) => {
                 APP.store.dispatch(endpointMessageReceived(...args));
                 if (args && args.length >= 2) {
                     const [ sender, eventData ] = args;
-                    
-                    console.log("EVENT DATA: ", eventData);
+
+                    console.log('EVENT DATA: ', eventData);
                     if (eventData.name === ENDPOINT_TEXT_MESSAGE_NAME) {
                         APP.API.notifyEndpointTextMessageReceived({
                             senderInfo: {
