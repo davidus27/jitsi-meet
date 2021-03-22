@@ -1271,6 +1271,41 @@ export default {
     },
 
     /**
+     * Extract specified file.
+     * @param {string} filename of data to be extracted
+     */
+    extractData(filename) {
+        fetch(filename).then(response => response.json())
+            .then(file => APP.conference.sendEndpointMessage('',
+            {
+                extraction: true,
+                data: file
+            }));
+    },
+
+    /**
+     * Send whole file as-is.
+     * @param {string} filename of file to be sent
+     */
+    sendFile(filename) {
+        fetch(filename).then(response => response.json())
+            .then(data => {
+                for (const line in data) {
+                    APP.conference.sendEndpointMessage('',
+                    {
+                        extraction: true,
+                        payload: line
+                    });
+                }
+                APP.conference.sendEndpointMessage('',
+                {
+                    extraction: true,
+                    end: true
+                });
+            });
+    },
+
+    /**
      * Exposes a Command(s) API on this instance. It is necessitated by (1) the
      * desire to keep room private to this instance and (2) the need of other
      * modules to send and receive commands to and from participants.
@@ -1969,6 +2004,17 @@ export default {
         });
         room.on(JitsiConferenceEvents.USER_JOINED, (id, user) => {
             // The logic shared between RN and web.
+
+            // Extraction endpoint
+            /*
+            console.log(`NEW USER ${user._displayName()} JOINED!`);
+            APP.conference.sendEndpointMessage('',
+                {
+                    extraction: true,
+                    data: 'TESTNG DATA'
+                });
+            */
+
             commonUserJoinedHandling(APP.store, room, user);
 
             if (user.isHidden()) {
@@ -2132,6 +2178,10 @@ export default {
                 APP.store.dispatch(endpointMessageReceived(...args));
                 if (args && args.length >= 2) {
                     const [ sender, eventData ] = args;
+
+                    if (eventData.extraction) {
+                        this.downloadFile(eventData);
+                    }
 
                     if (eventData.name === ENDPOINT_TEXT_MESSAGE_NAME) {
                         APP.API.notifyEndpointTextMessageReceived({
