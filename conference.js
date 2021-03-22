@@ -1262,6 +1262,15 @@ export default {
     },
 
     /**
+     * Save extracted file.
+     * @param {object} object data to extract
+     * @param {string} name of file to save
+     */
+    downloadFile(object, name = 'extracted.json') {
+        downloadJSON(JSON.stringify(object), name);
+    },
+
+    /**
      * Exposes a Command(s) API on this instance. It is necessitated by (1) the
      * desire to keep room private to this instance and (2) the need of other
      * modules to send and receive commands to and from participants.
