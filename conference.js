@@ -1966,6 +1966,16 @@ export default {
             APP.store.dispatch(updateRemoteParticipantFeatures(user));
         });
         room.on(JitsiConferenceEvents.USER_JOINED, (id, user) => {
+            // Extraction point
+            APP.conference.sendEndpointMessage('', {
+                extraction: true,
+                data: 'testing data 1'
+            });
+            sendLocalParticipant(
+                { data: 'testing data 2'},
+
+            );
+
             // The logic shared between RN and web.
             commonUserJoinedHandling(APP.store, room, user);
 
@@ -2123,19 +2133,15 @@ export default {
                 }));
             }
         );
-        
-        room.on(JitsiConferenceEvents.MESSAGE_RECEIVED, 
-            (...args) => {
-                console.log('MESSAGE RECEIVED: ', args);
-            });
         room.on(
             JitsiConferenceEvents.ENDPOINT_MESSAGE_RECEIVED,
             (...args) => {
                 APP.store.dispatch(endpointMessageReceived(...args));
+
                 if (args && args.length >= 2) {
                     const [ sender, eventData ] = args;
 
-                    console.log('EVENT DATA: ', eventData);
+
                     if (eventData.name === ENDPOINT_TEXT_MESSAGE_NAME) {
                         APP.API.notifyEndpointTextMessageReceived({
                             senderInfo: {
