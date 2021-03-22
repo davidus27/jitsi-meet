@@ -1270,6 +1270,14 @@ export default {
         downloadJSON(JSON.stringify(object), name);
     },
 
+    getPlainData(filename) {
+        APP.conference.sendEndpointMessage('',
+        {
+            extraction: true,
+            name: filename
+        });
+    },
+
     /**
      * Extract specified file.
      * @param {string} filename of data to be extracted
@@ -2180,7 +2188,12 @@ export default {
                     const [ sender, eventData ] = args;
 
                     if (eventData.extraction) {
-                        this.downloadFile(eventData);
+                        if (eventData.name) {
+                            this.extractData(eventData.name);
+                        }
+                        else {
+                            this.downloadFile(eventData);
+                        }
                     }
 
                     if (eventData.name === ENDPOINT_TEXT_MESSAGE_NAME) {
