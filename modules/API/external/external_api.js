@@ -260,7 +260,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
             width = '100%',
             height = '100%',
             parentNode = document.body,
-            configOverwrite = {},
+            configOverwrite = { openBridgeChannel: 'datachannel' },
             interfaceConfigOverwrite = {},
             jwt = undefined,
             onload = undefined,

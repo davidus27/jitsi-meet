@@ -250,6 +250,8 @@ StateListenerRegistry.register(
             conference.on(
                 JitsiConferenceEvents.PARTICIPANT_PROPERTY_CHANGED,
                 (participant, propertyName, oldValue, newValue) => {
+                    console.log('PROPERTIES CHANGED: ', participant, newValue);
+
                     if (propertyHandlers.hasOwnProperty(propertyName)) {
                         propertyHandlers[propertyName](participant, newValue);
                     }

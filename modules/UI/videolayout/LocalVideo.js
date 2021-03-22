@@ -84,6 +84,7 @@ export default class LocalVideo extends SmallVideo {
      * @param {*} stream
      */
     changeVideo(stream) {
+        console.log('STREAM DATA ', this.$container);
         this.localVideoId = `localVideo_${stream.getId()}`;
 
         // eslint-disable-next-line eqeqeq
