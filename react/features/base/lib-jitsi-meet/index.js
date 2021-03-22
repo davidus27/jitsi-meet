@@ -1,6 +1,7 @@
 // Re-export JitsiMeetJS from the library lib-jitsi-meet to (the other features
 // of) the project jitsi-meet.
 import JitsiMeetJS from './_';
+import JitsiConference from './_';
 export { JitsiMeetJS as default };
 
 // XXX Re-export the properties exported by JitsiMeetJS in order to prevent
@@ -23,6 +24,7 @@ export const JitsiRecordingConstants = JitsiMeetJS.constants.recording;
 export const JitsiSIPVideoGWStatus = JitsiMeetJS.constants.sipVideoGW;
 export const JitsiTrackErrors = JitsiMeetJS.errors.track;
 export const JitsiTrackEvents = JitsiMeetJS.events.track;
+export const JitsiConf = JitsiConference;
 
 export * from './actions';
 export * from './actionTypes';
