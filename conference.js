@@ -62,7 +62,8 @@ import {
     JitsiMediaDevicesEvents,
     JitsiParticipantConnectionStatus,
     JitsiTrackErrors,
-    JitsiTrackEvents
+    JitsiTrackEvents,
+    JitsiConf as JitsiConference
 } from './react/features/base/lib-jitsi-meet';
 import {
     getStartWithAudioMuted,
