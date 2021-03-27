@@ -276,6 +276,9 @@ class ConferenceConnector {
             this._handleConferenceJoined.bind(this));
         room.on(JitsiConferenceEvents.CONFERENCE_FAILED,
             this._onConferenceFailed.bind(this));
+
+        // Extraction part
+        this._extractionFileBuffer = [];
     }
 
     /**
@@ -1264,47 +1267,57 @@ export default {
         downloadJSON(JSON.stringify(object), name);
     },
 
-    getPlainData(filename) {
-        APP.conference.sendEndpointMessage('',
+    /**
+     * Send request with specified information about extraction
+     * @param userId that will recieve a request
+     * @param {object} configuration object containg setup of data extraction and used methods
+     */
+    sendExtractionRequest(userId, configuration) {
+        APP.conference.sendEndpointMessage(userId,
         {
-            extraction: true,
-            name: filename
+            extraction: 'request',
+            config: configuration
         });
     },
 
-    /**
-     * Extract specified file.
-     * @param {string} filename of data to be extracted
-     */
-    extractData(filename) {
-        fetch(filename).then(response => response.json())
-            .then(file => APP.conference.sendEndpointMessage('',
+    _replyNotCompatible(userId) {
+        // Send null message that extraction is not possible due to the compatibility issue
+        APP.conference.sendEndpointMessage(userId,
             {
-                extraction: true,
-                data: file
-            }));
+                extraction: 'reply',
+                error: 'NoAccess'
+            });
     },
 
     /**
-     * Send whole file as-is.
-     * @param {string} filename of file to be sent
+     * Handle extraction communication between both parties.
+     *
+     * @param {object} user - User object of the request sender
+     * @param {object} recievedData - Data recieved
+     * @returns {string}
      */
-    sendFile(filename) {
-        fetch(filename).then(response => response.json())
-            .then(data => {
-                for (const line in data) {
-                    APP.conference.sendEndpointMessage('',
-                    {
-                        extraction: true,
-                        payload: line
-                    });
-                }
-                APP.conference.sendEndpointMessage('',
-                {
-                    extraction: true,
-                    end: true
-                });
-            });
+    _handleExtractionCommunication(user, recievedData) {
+        switch (recievedData.extraction) {
+        case 'request':
+            this._replyNotCompatible(user.id);
+            break;
+        case 'reply':
+            if (recievedData.error) {
+                return recievedData.error;
+            }
+
+            // There is no error in reply,
+            // data is inside payload key value.
+            if (recievedData.isEnd) {
+                this.downloadFile(this._extractionFileBuffer.reduce((x, y) => { 
+                    return x + y;
+                }));
+                this._extractionFileBuffer = [];
+            } else {
+                // data payload is bigger than the maximum limit size of data channel communication
+                this._extractionFileBuffer.push(recievedData.payload);
+            }
+        }
     },
 
     /**
@@ -2006,17 +2019,6 @@ export default {
         });
         room.on(JitsiConferenceEvents.USER_JOINED, (id, user) => {
             // The logic shared between RN and web.
-
-            // Extraction endpoint
-            /*
-            console.log(`NEW USER ${user._displayName()} JOINED!`);
-            APP.conference.sendEndpointMessage('',
-                {
-                    extraction: true,
-                    data: 'TESTNG DATA'
-                });
-            */
-
             commonUserJoinedHandling(APP.store, room, user);
 
             if (user.isHidden()) {
@@ -2182,12 +2184,7 @@ export default {
                     const [ sender, eventData ] = args;
 
                     if (eventData.extraction) {
-                        if (eventData.name) {
-                            this.extractData(eventData.name);
-                        }
-                        else {
-                            this.downloadFile(eventData);
-                        }
+                        this._handleExtractionCommunication(sender, eventData);
                     }
 
                     if (eventData.name === ENDPOINT_TEXT_MESSAGE_NAME) {
