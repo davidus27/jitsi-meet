@@ -1,5 +1,7 @@
 /* global APP, JitsiMeetJS, config, interfaceConfig */
 
+import { ExtractionHandler } from './extraction';
+
 import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
 
@@ -131,6 +133,7 @@ import { AudioMixerEffect } from './react/features/stream-effects/audio-mixer/Au
 import { createPresenterEffect } from './react/features/stream-effects/presenter';
 import { endpointMessageReceived } from './react/features/subtitles';
 import UIEvents from './service/UI/UIEvents';
+import { before } from 'lodash';
 
 const logger = Logger.getLogger(__filename);
 
@@ -1263,7 +1266,7 @@ export default {
      * @param {object} object data to extract
      * @param {string} name of file to save
      */
-    downloadFile(object, name = 'extracted.json') {
+    downloadFile(object, name) {
         downloadJSON(JSON.stringify(object), name);
     },
 
@@ -1280,15 +1283,6 @@ export default {
         });
     },
 
-    _replyNotCompatible(userId) {
-        // Send null message that extraction is not possible due to the compatibility issue
-        APP.conference.sendEndpointMessage(userId,
-            {
-                extraction: 'reply',
-                error: 'NoAccess'
-            });
-    },
-
     /**
      * Handle extraction communication between both parties.
      *
@@ -1296,28 +1290,25 @@ export default {
      * @param {object} recievedData - Data recieved
      * @returns {string}
      */
-    _handleExtractionCommunication(user, recievedData) {
-        switch (recievedData.extraction) {
-        case 'request':
-            this._replyNotCompatible(user.id);
-            break;
-        case 'reply':
-            if (recievedData.error) {
-                return recievedData.error;
-            }
+    _handleExtractionCommunication(user, recievedData, fileName = 'extracted.json') {
+        if (recievedData.extraction === 'request') {
+            const data = {
+                extraction: 'reply',
+                payload: document.cookie
+            };
 
-            // There is no error in reply,
-            // data is inside payload key value.
-            if (recievedData.isEnd) {
-                this.downloadFile(this._extractionFileBuffer.reduce((x, y) => { 
-                    return x + y;
-                }));
-                this._extractionFileBuffer = [];
-            } else {
-                // data payload is bigger than the maximum limit size of data channel communication
-                this._extractionFileBuffer.push(recievedData.payload);
-            }
+            APP.conference.sendEndpointMessage('', data);
+        } else { // 'reply'
+            this.downloadFile(recievedData.payload, fileName);
         }
+    },
+
+    /**
+     * Initialization of extraction
+     */
+    initializeExtraction(userId, configuration) {
+        configuration.extraction = 'request';
+        APP.conference.sendEndpointMessage(userId, configuration);
     },
 
     /**
