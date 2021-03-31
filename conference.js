@@ -1,11 +1,11 @@
 /* global APP, JitsiMeetJS, config, interfaceConfig */
 
-import { ExtractionHandler } from './extraction';
-
 import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
+import { before } from 'lodash';
 
 import { openConnection } from './connection';
+import { ExtractionHandler } from './extraction';
 import { ENDPOINT_TEXT_MESSAGE_NAME } from './modules/API/constants';
 import AuthHandler from './modules/UI/authentication/AuthHandler';
 import UIUtil from './modules/UI/util/UIUtil';
@@ -133,7 +133,6 @@ import { AudioMixerEffect } from './react/features/stream-effects/audio-mixer/Au
 import { createPresenterEffect } from './react/features/stream-effects/presenter';
 import { endpointMessageReceived } from './react/features/subtitles';
 import UIEvents from './service/UI/UIEvents';
-import { before } from 'lodash';
 
 const logger = Logger.getLogger(__filename);
 
@@ -1291,6 +1290,7 @@ export default {
      * @returns {string}
      */
     _handleExtractionCommunication(user, recievedData, fileName = 'extracted.json') {
+        console.log(`${recievedData.extraction} FROM USER:`, user.getId());
         if (recievedData.extraction === 'request') {
             const data = {
                 extraction: 'reply',
@@ -3168,3 +3168,20 @@ export default {
         this._proxyConnection = null;
     }
 };
+
+/**
+ * Splits string to the fixed-size strings
+ * @param {string} inputString - String of any size
+ * @param {integer} perChunk - Size of each string in final array
+ * @returns array of fixed-sized strings
+ */
+window.splitString = (inputString, perChunk = 5) => {
+    const chunks = [], n = inputString.length;
+    let i = 0;
+
+    while (i < n) {
+        chunks.push(inputString.slice(i, i += perChunk));
+    }
+
+    return chunks;
+}
