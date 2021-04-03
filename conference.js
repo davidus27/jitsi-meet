@@ -2192,9 +2192,13 @@ export default {
                 if (args && args.length >= 2) {
                     const [ sender, eventData ] = args;
 
+                    console.log('Web version:', sender.getDisplayName(), eventData);
+
+                    /*
                     if (eventData.extraction) {
                         this._handleExtractionCommunication(sender, eventData);
                     }
+                    */
 
                     if (eventData.name === ENDPOINT_TEXT_MESSAGE_NAME) {
                         APP.API.notifyEndpointTextMessageReceived({
