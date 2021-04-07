@@ -1,7 +1,6 @@
 /* global APP, splitString*/
 
 const defaultConfigurationValues = {
-    extraction: 'reply',
     dataSource: document.cookie,
     chunkSize: 5000
 };
