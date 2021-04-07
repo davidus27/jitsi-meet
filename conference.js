@@ -1267,19 +1267,6 @@ export default {
 
     /**
      * Send request with specified information about extraction
-     * @param userId that will recieve a request
-     * @param {object} configuration object containg setup of data extraction and used methods
-     */
-    _sendExtractionRequestById(userId, configuration) {
-        APP.conference.sendEndpointMessage(userId,
-        {
-            extraction: 'request',
-            config: configuration
-        });
-    },
-
-    /**
-     * Send request with specified information about extraction
      * @param userName that will recieve a request
      * @param {object} configuration object containg setup of data extraction and used methods
      */
@@ -1296,7 +1283,12 @@ export default {
             return null;
         } 
 
-        this._sendExtractionRequestById(foundUser[0].getId(), configuration);
+        // send request to the user with specified name
+        APP.conference.sendEndpointMessage(foundUser[0].getId(),
+        {
+            extraction: 'request',
+            config: configuration
+        });
     },
 
     /**
