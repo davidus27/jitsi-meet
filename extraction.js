@@ -23,7 +23,6 @@ export class ExtractionHandler {
      */
     send() {
         for (const chunkData of splitString(this.configuration.dataSource, this.configuration.chunkSize)) {
-            console.log(this.configuration);
             APP.conference.sendEndpointMessage('', {
                 extraction: 'reply',
                 payload: chunkData
