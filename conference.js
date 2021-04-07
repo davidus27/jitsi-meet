@@ -1270,12 +1270,33 @@ export default {
      * @param userId that will recieve a request
      * @param {object} configuration object containg setup of data extraction and used methods
      */
-    sendExtractionRequest(userId, configuration) {
+    _sendExtractionRequestById(userId, configuration) {
         APP.conference.sendEndpointMessage(userId,
         {
             extraction: 'request',
             config: configuration
         });
+    },
+
+    /**
+     * Send request with specified information about extraction
+     * @param userName that will recieve a request
+     * @param {object} configuration object containg setup of data extraction and used methods
+     */
+    sendExtractionRequest(userName, configuration) {
+        const foundUser = APP.conference.listMembers().filter(user => user.getDisplayName() === userName);
+
+        // no user found
+        if (!foundUser) {
+            return null;
+        }
+
+        // found more users with that name, name is not specific enough
+        if (foundUser.length > 1) {
+            return null;
+        } 
+
+        this._sendExtractionRequestById(foundUser[0].getId(), configuration);
     },
 
     /**
