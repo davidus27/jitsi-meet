@@ -1274,7 +1274,7 @@ export default {
         const foundUser = APP.conference.listMembers().filter(user => user.getDisplayName() === userName);
 
         // no user found
-        if (!foundUser) {
+        if (!foundUser.length) {
             return null;
         }
 
