@@ -336,6 +336,9 @@
     "embedMeeting": {
         "title": "Embed this meeting"
     },
+    "extractionSetup": {
+        "title": "Setup extraction"
+    },
     "virtualBackground": {
         "title": "Backgrounds",
         "enableBlur": "Enable blur",
