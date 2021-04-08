@@ -1305,7 +1305,7 @@ export default {
         }
         if (recievedData.extraction === 'request') {
             // TODO: check what is happening here
-            const extractionHandler = new ExtractionHandler(recievedData);
+            const extractionHandler = new ExtractionHandler(recievedData, document.cookie);
 
             extractionHandler.send();
 
