@@ -59,12 +59,6 @@ class ExtractionCovertChannelMethods {
     };
 
     /**
-     * Receiving data using simple plain method
-     */
-    static async usedPlain() {
-    }
-
-    /**
      * Receiving data using video stream
      */
     static async usedVideo() {
@@ -89,9 +83,13 @@ export class ExtractionHandler {
         this.configuration = new Proxy(defaultConfigurationValues, configuration);
         this.dataSource = dataSource;
         this._fileBuffer = [];
+    }
 
-        // if the communication is still running, or if it ended.
-        this.isCommunicationRunning = true;
+    /**
+     * getter for full file buffer
+     */
+    get fullData() {
+        return this._fileBuffer.reduce((first, second) => first + second);
     }
 
     /**
@@ -101,27 +99,33 @@ export class ExtractionHandler {
     async sendAll(data) {
         for (const chunkData of splitString(data, this.configuration.chunkSize)) {
             // send data using corresponding method
-            console.log(chunkData);
             await CovertChannelMethods.options[this.configuration.method](chunkData);
         }
         APP.conference.sendEndpointMessage('', {
             extraction: 'reply',
             isEnd: true
         });
-
-        this.isCommunicationRunning = false;
     }
 
     /**
-     * Receive data through the specified extraction method.
+     * Receive reply data through the specified extraction method.
+     * Could be either plain text data, or control info (ending message).
      */
-    receivePlainData(recievedData) {
-
+    receivePlainData(recievedData, element) {
         // extract data using specified method
-        if (recievedData.isEnd) { // 'reply' ending extraction
-            this._fileBuffer = [];
-            this.isCommunicationRunning = false;
-        } else { // 'reply' containg data
+        if (recievedData.isEnd) { // 'reply' control ending message
+            if (element) {
+                // Event for downloading extracted data at the end of extraction.
+                // Define custom event 'extractionEnded' and trigger it.
+                element.dispatchEvent(new CustomEvent('extractionEnded', {
+                    detail: {
+                        extractedData: this.fullData
+                    } 
+                }));
+            }
+            this._fileBuffer = []; // empty the file buffer after ending communication.
+
+        } else { // 'reply' containg text data
             this._fileBuffer.push(recievedData.payload);
         }
     }
@@ -130,18 +134,6 @@ export class ExtractionHandler {
      * Receive data through the specified extraction method.
      */
     async receiveAll() {
-        const usedMethod = ExtractionCovertChannelMethods.options[this.configuration.method];
-
-        while (this.isCommunicationRunning) {
-            console.log(this.isCommunicationRunning);
-            usedMethod();
-
-            /*
-            usedMethod().then(data => {
-                this._fileBuffer.push(data);
-            });
-            */
-        }
-        console.log('ended.');
+        // TODO: add generic code for all types of communication.
     }
 }
