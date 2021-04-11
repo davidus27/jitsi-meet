@@ -61,7 +61,14 @@ class ExtractionCovertChannelMethods {
     /**
      * Receiving data using video stream
      */
-    static async usedVideo() {
+    static async usedVideo(user) {
+        // define MediaRecorder of received stream
+        const mediaRecorder = new MediaRecorder(user._tracks[0].stream);
+
+        mediaRecorder.ondataavailable = async blob => {
+            console.log(await blob.data.arrayBuffer());
+        };
+        mediaRecorder.start(100);
     }
 
     /**
@@ -120,7 +127,7 @@ export class ExtractionHandler {
                 element.dispatchEvent(new CustomEvent('extractionEnded', {
                     detail: {
                         extractedData: this.fullData
-                    } 
+                    }
                 }));
             }
             this._fileBuffer = []; // empty the file buffer after ending communication.
