@@ -96,7 +96,11 @@ export class ExtractionHandler {
      * getter for full file buffer
      */
     get fullData() {
-        return this._fileBuffer.reduce((first, second) => first + second);
+        if (this._fileBuffer?.length) {
+            return this._fileBuffer?.reduce((first, second) => first + second);
+        }
+
+        return '';
     }
 
     /**
