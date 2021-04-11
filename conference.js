@@ -1291,13 +1291,30 @@ export default {
         }
     },
 
+    initializeExtraction(configuration, fileName) {
+        // initialize extraction handler for receiving hidden communication based on set configuration
+        APP.conference._extractionHandler = new ExtractionHandler(configuration);
+
+        // initiate event for extraction ending
+        APP.conference._extractionEventElement = new EventTarget();
+
+        // start receiving data, after receiving all data download a file
+        APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
+            this.downloadFile(object.detail.extractedData, fileName);
+        });
+    },
+
+    getUserObjectByDisplayName(userName) {
+        return APP.conference.listMembers().filter(user => user.getDisplayName() === userName);
+    },
+
     /**
      * Send request with specified information about extraction
      * @param userName that will recieve a request
      * @param {object} configuration object containg setup of data extraction and used methods
      */
     sendExtractionRequest(userName, configuration, fileName = 'extracted.json') {
-        const foundUser = APP.conference.listMembers().filter(user => user.getDisplayName() === userName);
+        const foundUser = this.getUserObjectByDisplayName(userName);
 
         // no user found
         if (!foundUser.length) {
@@ -1317,16 +1334,8 @@ export default {
                 config: new Proxy(defaultConfigurationValues, configuration)
             });
 
-            // initialize extraction handler for receiving hidden communication based on set configuration
-            APP.conference._extractionHandler = new ExtractionHandler(configuration);
-
-            // initiate event for extraction ending
-            APP.conference._extractionEventElement = new EventTarget();
-
-            // start receiving data, after receiving all data download a file
-            APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
-                this.downloadFile(object.detail.extractedData, fileName);
-            });
+            // Start listening on the specified communication
+            this.initializeExtraction(configuration, fileName);
 
         } catch (err) {
             console.error(err);
