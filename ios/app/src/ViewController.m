@@ -119,6 +119,10 @@
   NSLog(@"%@%@", @"Endpoint text message received: ", data);
 }
 
+- (void)extractionStarted:(NSDictionary *)data {
+  NSLog(@"%@%@", @"Extraction started: ", data);
+}
+
 - (void)screenShareToggled:(NSDictionary *)data {
   NSLog(@"%@%@", @"Screen share toggled: ", data);
 }
