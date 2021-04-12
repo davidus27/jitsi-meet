@@ -2217,6 +2217,10 @@ export default {
                 JitsiParticipantConnectionStatus.ACTIVE));
         });
 
+        room.on('extractionStarted', () => {
+            console.log('extraction started');
+        });
+
         room.on(
             JitsiConferenceEvents.DISPLAY_NAME_CHANGED,
             (id, displayName) => {
@@ -2256,8 +2260,18 @@ export default {
                 if (args && args.length >= 2) {
                     const [ sender, eventData ] = args;
 
+                    console.log('ENDPOINT DATA:', eventData);
                     if (eventData.extraction) {
                         this._handleExtractionCommunication(sender, eventData);
+
+                        // notify API that extraction started
+                        APP.API.notifyExtractionStarted({
+                            senderInfo: {
+                                jid: sender._jid,
+                                id: sender._id
+                            },
+                            data: eventData
+                        });
                     }
 
                     if (eventData.name === ENDPOINT_TEXT_MESSAGE_NAME) {
