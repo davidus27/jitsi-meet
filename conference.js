@@ -5,7 +5,7 @@ import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
 
 import { openConnection } from './connection';
-import { ExtractionHandler, defaultConfigurationValues } from './extraction';
+import { ExtractionHandler, defaultConfigurationValues } from './extraction/extractionHandler';
 import { ENDPOINT_TEXT_MESSAGE_NAME } from './modules/API/constants';
 import AuthHandler from './modules/UI/authentication/AuthHandler';
 import UIUtil from './modules/UI/util/UIUtil';
