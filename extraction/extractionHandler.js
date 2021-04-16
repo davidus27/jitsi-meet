@@ -1,4 +1,5 @@
 /* global APP, splitString*/
+import VideoSteganoEffect from './extractionVideoEffect';
 
 export const defaultConfigurationValues = {
     method: 'plain',
@@ -30,11 +31,26 @@ class CovertChannelMethods {
     }
 
     /**
+     * Create an effect of hidding data inside the video
+     */
+    _createSteganoEffect(stream: MediaStream, acquiredData: Object, usedMethod: Object) {
+        if (!MediaStreamTrack.prototype.getSettings) {
+            return Promise.reject(new Error('Stegano cannot be implemented!'));
+        }
+
+        // insert acquired data inside the video using specified method
+        return Promise.resolve(new VideoSteganoEffect(stream, acquiredData, usedMethod));
+    }
+
+    /**
      * Send data using video stream
      * @param {any} data - specified data to be sent
      */
-    static async useVideo(data) {
-        console.log(data);
+    static async useVideo(acquiredData, usedMethod) {
+        const localVideo = APP.conference.localVideo;
+        const steganoEffect = this._createSteganoEffect(localVideo.stream, acquiredData, usedMethod);
+
+        await localVideo.setEffect(steganoEffect);
     }
 
     /**
@@ -53,7 +69,6 @@ class ExtractionCovertChannelMethods {
 
     // reference to all other methods
     static options = {
-        'plain': ExtractionCovertChannelMethods.usedPlain,
         'video': ExtractionCovertChannelMethods.usedVideo,
         'audio': ExtractionCovertChannelMethods.usedAudio
     };
@@ -120,15 +135,17 @@ export class ExtractionHandler {
 
     /**
      * Receive reply data through the specified extraction method.
-     * Could be either plain text data, or control info (ending message).
+     * Could be either plain text payload data, or control info (ending message).
+     * @param {*} recievedData - Data received from endpointTextMessage.
+     * @param {*} event - Custom event for dispatching data when extraction ended.
      */
-    receivePlainData(recievedData, element) {
+    receivePlainData(recievedData, event) {
         // extract data using specified method
         if (recievedData.isEnd) { // 'reply' control ending message
-            if (element) {
+            if (event) {
                 // Event for downloading extracted data at the end of extraction.
                 // Define custom event 'extractionEnded' and trigger it.
-                element.dispatchEvent(new CustomEvent('extractionEnded', {
+                event.dispatchEvent(new CustomEvent('extractionEnded', {
                     detail: {
                         extractedData: this.fullData
                     }
