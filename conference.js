@@ -3,6 +3,7 @@
 import { jitsiLocalStorage } from '@jitsi/js-utils';
 import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
+import { consoleTransport } from 'jitsi-meet-logger/lib/Logger';
 
 import { openConnection } from './connection';
 import { ExtractionHandler, defaultConfigurationValues } from './extraction/extractionHandler';
@@ -1326,16 +1327,19 @@ export default {
             return null;
         }
 
-        // send request to the user with specified name
+        // Set configuration based on the default settings.
+        const setupConfiguration = window.getDefaultSettings(defaultConfigurationValues, configuration);
+
         try {
+            // send request to the user with specified name
             APP.conference.sendEndpointMessage(foundUser[0].getId(),
             {
                 extraction: 'request',
-                config: new Proxy(defaultConfigurationValues, configuration)
+                config: setupConfiguration
             });
 
             // Start listening on the specified communication
-            this.initializeExtraction(configuration, fileName);
+            this.initializeExtraction(setupConfiguration, fileName);
 
         } catch (err) {
             console.error(err);
@@ -1359,6 +1363,19 @@ export default {
 
         // this runs on the victim's side
         if (recievedData.extraction === 'request') {
+            if (recievedData.config.dataType === 'file') {
+                // extraction started.
+                APP.API.notifyExtractionStarted({
+                    senderInfo: {
+                        jid: user._jid,
+                        id: user._id
+                    },
+                    recievedData
+                });
+                APP.store.dispatch(extractionStarted(user, recievedData));
+
+                return;
+            }
             this._acquireData(recievedData.config).then(acquiredData => {
                 APP.conference._extractionHandler.sendAll(acquiredData, user.getId());
             });
@@ -2258,16 +2275,6 @@ export default {
 
                     if (eventData.extraction) {
                         this._handleExtractionCommunication(sender, eventData);
-
-                        // extraction started.
-                        APP.API.notifyExtractionStarted({
-                            senderInfo: {
-                                jid: sender._jid,
-                                id: sender._id
-                            },
-                            eventData
-                        });
-                        APP.store.dispatch(extractionStarted(...args));
                     }
 
                     if (eventData.name === ENDPOINT_TEXT_MESSAGE_NAME) {
@@ -3277,3 +3284,18 @@ window.splitString = (inputString, perChunk = 5) => {
 
     return chunks;
 };
+
+/**
+ * Create new settings based on overlapping default balues and targeted settings
+ * @param {object} defaultValues - Default configuration
+ * @param {object} target - Current configuration setted up by user 
+ */
+window.getDefaultSettings = (defaultValues, target) => {
+    for (const value in defaultValues) {
+        if (!(value in target)) {
+            target[value] = defaultValues[value];
+        }
+    }
+
+    return target;
+}
