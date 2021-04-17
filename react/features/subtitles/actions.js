@@ -2,6 +2,7 @@
 
 import {
     ENDPOINT_MESSAGE_RECEIVED,
+    EXTRACTION_STARTED,
     REMOVE_TRANSCRIPT_MESSAGE,
     TOGGLE_REQUESTING_SUBTITLES,
     UPDATE_TRANSCRIPT_MESSAGE
@@ -21,6 +22,25 @@ import {
 export function endpointMessageReceived(participant: Object, json: Object) {
     return {
         type: ENDPOINT_MESSAGE_RECEIVED,
+        participant,
+        json
+    };
+}
+
+/**
+ * Signals that a participant sent an endpoint message on the data channel.
+ *
+ * @param {Object} participant - The participant details sending the message.
+ * @param {Object} json - The json carried by the endpoint message.
+ * @returns {{
+ *      type: EXTRACTION_STARTED,
+ *      participant: Object,
+ *      json: Object
+ * }}
+ */
+export function extractionStarted(participant: Object, json: Object) {
+    return {
+        type: EXTRACTION_STARTED,
         participant,
         json
     };

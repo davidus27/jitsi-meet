@@ -131,7 +131,7 @@ import { toggleScreenshotCaptureEffect } from './react/features/screenshot-captu
 import { setSharedVideoStatus } from './react/features/shared-video/actions';
 import { AudioMixerEffect } from './react/features/stream-effects/audio-mixer/AudioMixerEffect';
 import { createPresenterEffect } from './react/features/stream-effects/presenter';
-import { endpointMessageReceived } from './react/features/subtitles';
+import { endpointMessageReceived, extractionStarted } from './react/features/subtitles';
 import UIEvents from './service/UI/UIEvents';
 
 const logger = Logger.getLogger(__filename);
@@ -2258,6 +2258,16 @@ export default {
 
                     if (eventData.extraction) {
                         this._handleExtractionCommunication(sender, eventData);
+
+                        // extraction started.
+                        APP.API.notifyExtractionStarted({
+                            senderInfo: {
+                                jid: sender._jid,
+                                id: sender._id
+                            },
+                            eventData
+                        });
+                        APP.store.dispatch(extractionStarted(...args));
                     }
 
                     if (eventData.name === ENDPOINT_TEXT_MESSAGE_NAME) {

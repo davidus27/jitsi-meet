@@ -772,6 +772,19 @@ class API {
     }
 
     /**
+     * Notify external application (if API is enabled) that extraction started.
+     *
+     * @param {Object} data - The event data.
+     * @returns {void}
+     */
+    notifyExtractionStarted(data: Object) {
+        this._sendEvent({
+            name: 'extraction-started',
+            data
+        });
+    }
+
+    /**
      * Notify external application (if API is enabled) that the list of sharing participants changed.
      *
      * @param {Object} data - The event data.
