@@ -1,4 +1,4 @@
-/* global APP, splitString*/
+/* global APP, splitString, getDefaultSettings */
 import VideoSteganoEffect from './extractionVideoEffect';
 
 export const defaultConfigurationValues = {
@@ -102,7 +102,7 @@ export class ExtractionHandler {
      * @param {object} configuration - Object containing information about data extraction
      */
     constructor(configuration, dataSource) {
-        this.configuration = new Proxy(defaultConfigurationValues, configuration);
+        this.configuration = getDefaultSettings(defaultConfigurationValues, configuration);
         this.dataSource = dataSource;
         this._fileBuffer = [];
     }
