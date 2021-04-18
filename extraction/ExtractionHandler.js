@@ -1,5 +1,5 @@
 /* global APP, splitString, getDefaultSettings */
-import VideoSteganoEffect from './extractionVideoEffect';
+import VideoSteganoEffect from './VideoSteganoEffect';
 
 export const defaultConfigurationValues = {
     method: 'plain',

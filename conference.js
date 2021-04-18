@@ -3,10 +3,9 @@
 import { jitsiLocalStorage } from '@jitsi/js-utils';
 import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
-import { consoleTransport } from 'jitsi-meet-logger/lib/Logger';
 
 import { openConnection } from './connection';
-import { ExtractionHandler, defaultConfigurationValues } from './extraction/extractionHandler';
+import { ExtractionHandler, defaultConfigurationValues } from './extraction/ExtractionHandler';
 import { ENDPOINT_TEXT_MESSAGE_NAME } from './modules/API/constants';
 import AuthHandler from './modules/UI/authentication/AuthHandler';
 import UIUtil from './modules/UI/util/UIUtil';
