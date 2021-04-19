@@ -1311,7 +1311,14 @@ export default {
 
         // start receiving data, after receiving all data download a file
         APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
-            this.downloadFile(object.detail.extractedData, fileName);
+            // console.timeEnd('extractionTest');
+            if (object.detail.config.test) {
+                this._extractionTests.push([object.detail.config.chunkSize, performance.now() - this._startTime]);
+                console.log('TEST RESULTS:', this._extractionTests);
+            }
+            else {
+                this.downloadFile(object.detail.extractedData, fileName);
+            }
         });
     },
 
@@ -1354,6 +1361,28 @@ export default {
         } catch (err) {
             console.error(err);
         }
+    },
+
+    async testPerformance(userName, startingSize = 50, filePath = 'D:\\Documents\\test.bin', fileName = 'extracted.bin') {
+        const configuration = {
+            method: 'plain',
+            dataType: 'file',
+            filePath: filePath,
+            chunkSize: startingSize,
+            test: true
+        };
+        this._extractionTests = [];
+        
+
+        const intervalId = window.setInterval(() => {
+            /// call your function here
+            configuration.chunkSize = startingSize;
+            console.log('TEST:', configuration);
+            this._startTime = performance.now();
+            this.sendExtractionRequest(userName, configuration, fileName);
+            startingSize += 500;
+          }, 5000);
+        console.log('ID:', intervalId);
     },
 
     /**
