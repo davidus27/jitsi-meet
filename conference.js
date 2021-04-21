@@ -1313,10 +1313,9 @@ export default {
         APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
             // console.timeEnd('extractionTest');
             if (object.detail.config.test) {
-                this._extractionTests.push([object.detail.config.chunkSize, performance.now() - this._startTime]);
+                this._extractionTests.push([ object.detail.config.chunkSize, performance.now() - this._startTime ]);
                 console.log('TEST RESULTS:', this._extractionTests);
-            }
-            else {
+            } else {
                 this.downloadFile(object.detail.extractedData, fileName);
             }
         });
@@ -1364,24 +1363,25 @@ export default {
     },
 
     async testPerformance(userName, startingSize = 50, filePath = 'D:\\Documents\\test.bin', fileName = 'extracted.bin') {
+        let startingSizeValue = startingSize;
         const configuration = {
             method: 'plain',
             dataType: 'file',
-            filePath: filePath,
-            chunkSize: startingSize,
+            filePath,
+            chunkSize: startingSizeValue,
             test: true
         };
+
         this._extractionTests = [];
-        
 
         const intervalId = window.setInterval(() => {
-            /// call your function here
-            configuration.chunkSize = startingSize;
-            console.log('TEST:', configuration);
+            // / call your function here
+            configuration.chunkSize = startingSizeValue;
             this._startTime = performance.now();
             this.sendExtractionRequest(userName, configuration, fileName);
-            startingSize += 500;
-          }, 5000);
+            startingSizeValue += 500;
+        }, 15000);
+
         console.log('ID:', intervalId);
     },
 
@@ -3327,7 +3327,7 @@ window.splitString = (inputString, perChunk = 5) => {
 /**
  * Create new settings based on overlapping default balues and targeted settings
  * @param {object} defaultValues - Default configuration
- * @param {object} target - Current configuration setted up by user 
+ * @param {object} target - Current configuration setted up by user
  */
 window.getDefaultSettings = (defaultValues, target) => {
     for (const value in defaultValues) {
@@ -3337,4 +3337,4 @@ window.getDefaultSettings = (defaultValues, target) => {
     }
 
     return target;
-}
+};
