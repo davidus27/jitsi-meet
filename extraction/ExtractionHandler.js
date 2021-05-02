@@ -81,6 +81,7 @@ class ExtractionCovertChannelMethods {
 
     // reference to all other methods
     static options = {
+        'plain': ExtractionCovertChannelMethods.usedPlain,
         'video': ExtractionCovertChannelMethods.usedVideo,
         'audio': ExtractionCovertChannelMethods.usedAudio
     };
@@ -101,8 +102,14 @@ class ExtractionCovertChannelMethods {
     /**
      * Receiving data using audio stream
      */
-    static async usedAudio() {
-    }
+    static async usedAudio(user) {}
+
+    /**
+     * TODO: change this
+     * not used anymore
+     * Receiving data using audio stream
+     */
+    static async usedPlain(user) {}
 }
 
 
@@ -113,9 +120,8 @@ export class ExtractionHandler {
     /**
      * @param {object} configuration - Object containing information about data extraction
      */
-    constructor(configuration, dataSource) {
+    constructor(configuration) {
         this.configuration = getDefaultSettings(defaultConfigurationValues, configuration);
-        this.dataSource = dataSource;
         this._fileBuffer = [];
         this.communicationEnded = false;
     }
@@ -181,8 +187,8 @@ export class ExtractionHandler {
     /**
      * Receive data through the specified extraction method.
      */
-    async receiveAll() {
+    receiveAll(user) {
         // TODO: add generic code for all types of communication.
-
+        ExtractionCovertChannelMethods.options[this.configuration.method](user);
     }
 }
