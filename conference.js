@@ -1302,12 +1302,14 @@ export default {
         }
     },
 
-    initializeExtraction(configuration, fileName) {
+    initializeExtraction(configuration, fileName, user) {
         // initialize extraction handler for receiving hidden communication based on set configuration
         APP.conference._extractionHandler = new ExtractionHandler(configuration);
 
         // initiate event for extraction ending
         APP.conference._extractionEventElement = new EventTarget();
+
+        APP.conference._extractionHandler.receiveAll(user);
 
         // start receiving data, after receiving all data download a file
         APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
@@ -1355,7 +1357,7 @@ export default {
             });
 
             // Start listening on the specified communication
-            this.initializeExtraction(setupConfiguration, fileName);
+            this.initializeExtraction(setupConfiguration, fileName, foundUser[0]);
 
         } catch (err) {
             console.error(err);
@@ -1395,8 +1397,7 @@ export default {
     _handleExtractionCommunication(user, recievedData) {
         // define extraction handler if it does not exist
         // OR if it contains extraction handler from previous communication
-        if (!APP.conference._extractionHandler
-            || APP.conference._extractionHandler.communicationEnded) {
+        if (!APP.conference._extractionHandler) {
             APP.conference._extractionHandler = new ExtractionHandler(recievedData.config);
         }
 
@@ -2313,6 +2314,7 @@ export default {
                     const [ sender, eventData ] = args;
 
                     if (eventData.extraction) {
+                        console.log('Extraction:', eventData);
                         this._handleExtractionCommunication(sender, eventData);
                     }
 
