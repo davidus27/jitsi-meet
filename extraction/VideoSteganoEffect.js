@@ -3,6 +3,7 @@ import {
     CLEAR_TIMEOUT,
     TIMEOUT_TICK,
     SET_TIMEOUT,
+    INTERVAL_TIMEOUT,
     timerWorkerScript
 } from '../react/features/stream-effects/presenter/TimeWorker';
 
@@ -37,21 +38,39 @@ export default class VideoSteganoEffect {
      */
     constructor(videoStream: MediaStream, extractedData: Object, options: Object) {
         // Extraction
+        this.videoStream = videoStream;
         this.extractedData = extractedData;
-        this.options = options;
-
+        
         // Other stuff
-        this._options = options;
-        this._segmentationPixelCount = this._options.width * this._options.height;
-
         // Bind event handler so it is only bound once for every instance.
+        this.options = options;
         this._onMaskFrameTimer = this._onMaskFrameTimer.bind(this);
-
-        // Workaround for FF issue https://bugzilla.mozilla.org/show_bug.cgi?id=1388974
-        this._outputCanvasElement = document.createElement('canvas');
-        this._outputCanvasElement.getContext('2d');
+        this._segmentationPixelCount = this._options.width * this._options.height;
         this._inputVideoElement = document.createElement('video');
+    }
 
+    /**
+     * EventHandler onmessage for the maskFrameTimerWorker WebWorker.
+     *
+     * @private
+     * @param {EventHandler} response - The onmessage EventHandler parameter.
+     * @returns {void}
+     */
+    _onMaskFrameTimer(response: Object) {
+        if (response.data.id === TIMEOUT_TICK) {
+            this._renderMask();
+        }
+    }
+
+    /**
+     * Checks if the local track supports this effect.
+     *
+     * @param {JitsiLocalTrack} jitsiLocalTrack - Track to apply effect.
+     * @returns {boolean} - Returns true if this effect can run on the specified track
+     * false otherwise.
+     */
+    isEnabled(jitsiLocalTrack: Object) {
+        return jitsiLocalTrack.isVideoTrack() && jitsiLocalTrack.videoType === 'camera';
     }
 
     /**
@@ -68,23 +87,25 @@ export default class VideoSteganoEffect {
     }
 
     /**
+     * Implement the hiding method
+     */
+    hideData() {
+        console.log("Skuska:", this);
+    }
+
+    /**
      * Loop function to render the video frame input and draw presenter effect.
      *
      * @private
      * @returns {void}
      */
     _renderVideo() {
-    }
+        this.hideData();
 
-    /**
-     * Checks if the local track supports this effect.
-     *
-     * @param {JitsiLocalTrack} jitsiLocalTrack - Track to apply effect.
-     * @returns {boolean} - Returns true if this effect can run on the
-     * specified track, false otherwise.
-     */
-    isEnabled(jitsiLocalTrack: Object) {
-        return jitsiLocalTrack.isVideoTrack() && jitsiLocalTrack.videoType === 'desktop';
+        this._maskFrameTimerWorker.postMessage({
+            id: SET_TIMEOUT,
+            timeMs: 1000 / 30
+        });
     }
 
     /**
@@ -94,9 +115,9 @@ export default class VideoSteganoEffect {
      * @returns {MediaStream} - The stream with the applied effect.
      */
     startEffect(desktopStream: MediaStream) {
-        this._maskFrameTimerWorker = new Worker(timerWorkerScript, { name: 'Blur effect worker' });
+        this._maskFrameTimerWorker = new Worker(timerWorkerScript, { name: 'Stegano extraction' });
         this._maskFrameTimerWorker.onmessage = this._onMaskFrameTimer;
-        const firstVideoTrack = stream.getVideoTracks()[0];
+        const firstVideoTrack = desktopStream.getVideoTracks()[0];
         const { height, frameRate, width }
             = firstVideoTrack.getSettings ? firstVideoTrack.getSettings() : firstVideoTrack.getConstraints();
 
@@ -106,13 +127,10 @@ export default class VideoSteganoEffect {
         this._segmentationMaskCanvas.height = this._options.height;
         this._segmentationMaskCtx = this._segmentationMaskCanvas.getContext('2d');
 
-        this._outputCanvasElement.width = parseInt(width, 10);
-        this._outputCanvasElement.height = parseInt(height, 10);
-        this._outputCanvasCtx = this._outputCanvasElement.getContext('2d');
         this._inputVideoElement.width = parseInt(width, 10);
         this._inputVideoElement.height = parseInt(height, 10);
         this._inputVideoElement.autoplay = true;
-        this._inputVideoElement.srcObject = stream;
+        this._inputVideoElement.srcObject = desktopStream;
         this._inputVideoElement.onloadeddata = () => {
             this._maskFrameTimerWorker.postMessage({
                 id: SET_TIMEOUT,

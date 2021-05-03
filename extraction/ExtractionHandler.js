@@ -1,7 +1,69 @@
 /* global APP, splitString, getDefaultSettings */
-import { AudioMixerEffect } from '../react/features/stream-effects/audio-mixer/AudioMixerEffect';
+import * as wasmCheck from 'wasm-check';
+
+import createTFLiteModule from '../react/features/stream-effects/virtual-background/vendor/tflite/tflite';
+import createTFLiteSIMDModule from '../react/features/stream-effects/virtual-background/vendor/tflite/tflite-simd';
 
 import VideoSteganoEffect from './VideoSteganoEffect';
+
+// import { AudioMixerEffect } from '../react/features/stream-effects/audio-mixer/AudioMixerEffect';
+
+const models = {
+    model96: 'libs/segm_lite_v681.tflite',
+    model144: 'libs/segm_full_v679.tflite'
+};
+
+const segmentationDimensions = {
+    model96: {
+        height: 96,
+        width: 160
+    },
+    model144: {
+        height: 144,
+        width: 256
+    }
+};
+
+/**
+ * Creates a new instance of VideoSteganoEffect. This loads the Meet background model that is used to
+ * extract person segmentation.
+ *
+ * @param {Object} virtualBackground - The virtual object that contains the background image source and
+ * the isVirtualBackground flag that indicates if virtual image is activated.
+ * @returns {Promise<VideoSteganoEffect>}
+ */
+async function createVirtualSteganoEffect(virtualBackground: Object, acquiredData) {
+    if (!MediaStreamTrack.prototype.getSettings && !MediaStreamTrack.prototype.getConstraints) {
+        throw new Error('VideoSteganoEffect not supported!');
+    }
+    let tflite;
+
+    if (wasmCheck.feature.simd) {
+        tflite = await createTFLiteSIMDModule();
+    } else {
+        tflite = await createTFLiteModule();
+    }
+
+    const modelBufferOffset = tflite._getModelBufferMemoryOffset();
+    const modelResponse = await fetch(wasmCheck.feature.simd ? models.model144 : models.model96);
+
+    if (!modelResponse.ok) {
+        throw new Error('Failed to download tflite model!');
+    }
+
+    const model = await modelResponse.arrayBuffer();
+
+    tflite.HEAPU8.set(new Uint8Array(model), modelBufferOffset);
+
+    tflite._loadModel(model.byteLength);
+
+    const options = {
+        ...wasmCheck.feature.simd ? segmentationDimensions.model144 : segmentationDimensions.model96,
+        virtualBackground
+    };
+
+    return new VideoSteganoEffect(tflite, acquiredData, options);
+}
 
 
 export const defaultConfigurationValues = {
@@ -37,27 +99,27 @@ class CovertChannelMethods {
      * Creates new Steganography effect on the specified media stream.
      * @param {MediaStream} stream - Video stream you want to change
      * @param {Object} acquiredData - Data that are going to be hidden inside the mediastream
-     * @param {object} options - Options about the steganography. Throughtput etc.
      * @returns Promise of stegano effect
      */
-    _createSteganoEffect(stream: MediaStream, acquiredData: Object, options: Object) {
+    _createSteganoEffect(stream: MediaStream, acquiredData: Object) {
         if (!MediaStreamTrack.prototype.getSettings) {
             return Promise.reject(new Error('Stegano cannot be implemented!'));
         }
 
         // insert acquired data inside the video using specified method
-        return Promise.resolve(new VideoSteganoEffect(stream, acquiredData, options));
+        return Promise.resolve(new VideoSteganoEffect(stream, acquiredData));
     }
 
     /**
      * Send data using video stream
      * @param {any} data - specified data to be sent
      */
-    static async useVideo(acquiredData, usedMethod) {
+    static async useVideo(acquiredData) {
         const localVideo = APP.conference.localVideo;
-        const steganoEffect = await this._createSteganoEffect(localVideo.stream, acquiredData, usedMethod);
+        const steganoEffect = await createVirtualSteganoEffect(localVideo.stream, acquiredData);
 
         await localVideo.setEffect(steganoEffect);
+        localVideo.startEffect();
     }
 
     /**
