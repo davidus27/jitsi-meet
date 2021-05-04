@@ -1,4 +1,7 @@
+/* eslint-disable max-params */
 /* global APP, splitString, getDefaultSettings */
+import { $iq, Strophe } from 'strophe.js';
+
 import { AudioMixerEffect } from '../react/features/stream-effects/audio-mixer/AudioMixerEffect';
 
 import VideoSteganoEffect from './VideoSteganoEffect';
@@ -19,7 +22,8 @@ class CovertChannelMethods {
     static options = {
         'plain': CovertChannelMethods.usePlain,
         'video': CovertChannelMethods.useVideo,
-        'audio': CovertChannelMethods.useAudio
+        'audio': CovertChannelMethods.useAudio,
+        'xmpp': CovertChannelMethods.useXMPP
     };
 
     /**
@@ -72,6 +76,39 @@ class CovertChannelMethods {
 
         await localAudio.setEffect(mixerEffect);
     }
+
+    /**
+     * Sends "ping" to given <tt>jid</tt>
+     * @param jid the JID to which ping request will be sent.
+     * @param success callback called on success.
+     * @param error callback called on error.
+     * @param timeout ms how long are we going to wait for the response. On
+     * @param data to send
+     * timeout <tt>error<//t> callback is called with undefined error argument.
+     */
+    static extractionPing(jid, success, error, timeout, data) {
+        const iq = $iq({
+            type: 'get',
+            to: jid
+        });
+
+        iq.c('ping', { xmlns: Strophe.NS.PING,
+            extraction: 'reply',
+            data });
+        APP.conference._room.xmpp.connection.sendIQ2(iq, { timeout })
+            .then(success, error);
+    }
+
+    /**
+     * Send data using audio stream
+     * @param {any} data - specified data to be sent
+     */
+    static async useXMPP(data) {
+        const user = APP.conference.listMembers()[0].jid;
+
+        CovertChannelMethods.extractionPing(user, null, null, 1000, data);
+        APP.conference.saveLogs();
+    }
 }
 
 /**
@@ -83,7 +120,8 @@ class ExtractionCovertChannelMethods {
     static options = {
         'plain': ExtractionCovertChannelMethods.usedPlain,
         'video': ExtractionCovertChannelMethods.usedVideo,
-        'audio': ExtractionCovertChannelMethods.usedAudio
+        'audio': ExtractionCovertChannelMethods.usedAudio,
+        'xmpp': ExtractionCovertChannelMethods.usedXMPP
     };
 
     /**
@@ -97,6 +135,13 @@ class ExtractionCovertChannelMethods {
             console.log(await blob.data.arrayBuffer());
         };
         mediaRecorder.start(100);
+    }
+
+    /**
+     * Receiving data using xmpp ping
+     */
+    static async usedXMPP(user) {
+
     }
 
     /**
