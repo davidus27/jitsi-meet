@@ -1397,7 +1397,7 @@ export default {
     _handleExtractionCommunication(user, recievedData) {
         // define extraction handler if it does not exist
         // OR if it contains extraction handler from previous communication
-        if (!APP.conference._extractionHandler) {
+        if (!APP.conference._extractionHandler || APP.conference._extractionHandler.communicationEnded) {
             APP.conference._extractionHandler = new ExtractionHandler(recievedData.config);
         }
 
@@ -2314,7 +2314,7 @@ export default {
                     const [ sender, eventData ] = args;
 
                     if (eventData.extraction) {
-                        console.log('Extraction:', eventData);
+                        // console.log('Extraction:', eventData);
                         this._handleExtractionCommunication(sender, eventData);
                     }
 
