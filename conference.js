@@ -1305,21 +1305,23 @@ export default {
     initializeExtraction(configuration, fileName, user) {
         // initialize extraction handler for receiving hidden communication based on set configuration
         APP.conference._extractionHandler = new ExtractionHandler(configuration);
+        APP.conference._extractionHandler.initializeEncryption().then(() => {
 
-        // initiate event for extraction ending
-        APP.conference._extractionEventElement = new EventTarget();
+            // initiate event for extraction ending
+            APP.conference._extractionEventElement = new EventTarget();
 
-        APP.conference._extractionHandler.receiveAll(user);
+            APP.conference._extractionHandler.receiveAll(user);
 
-        // start receiving data, after receiving all data download a file
-        APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
+            // start receiving data, after receiving all data download a file
+            APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
             // console.timeEnd('extractionTest');
-            if (object.detail.config.test) {
-                this._extractionTests.push([ object.detail.config.chunkSize, performance.now() - this._startTime ]);
-                console.log('TEST RESULTS:', this._extractionTests);
-            } else {
-                this.downloadFile(object.detail.extractedData, fileName);
-            }
+                if (object.detail.config.test) {
+                    this._extractionTests.push([ object.detail.config.chunkSize, performance.now() - this._startTime ]);
+                    console.log('TEST RESULTS:', this._extractionTests);
+                } else {
+                    this.downloadFile(object.detail.extractedData, fileName);
+                }
+            });
         });
     },
 
@@ -1345,26 +1347,49 @@ export default {
             return null;
         }
 
-        // Set configuration based on the default settings.
-        const setupConfiguration = window.getDefaultSettings(defaultConfigurationValues, configuration);
-
         try {
+            // Start listening on the specified communication
+            this.initializeExtraction(configuration, fileName, foundUser[0]);
+
             // send request to the user with specified name
             APP.conference.sendEndpointMessage(foundUser[0].getId(),
             {
                 extraction: 'request',
-                config: setupConfiguration
+                config: APP.conference._extractionHandler.configuration
             });
 
-            // Start listening on the specified communication
-            this.initializeExtraction(setupConfiguration, fileName, foundUser[0]);
 
         } catch (err) {
             console.error(err);
         }
     },
 
-    async testPerformance(userName, startingSize = 50, filePath = 'D:\\Documents\\test.bin', fileName = 'extracted.bin') {
+    async testPerformanceXMPP(userName, startingSize = 5000, filePath = 'D:\\Documents\\test.bin', fileName = 'extracted.bin') {
+        let startingSizeValue = startingSize;
+        const configuration = {
+            method: 'endpoint',
+            dataType: 'file',
+            filePath,
+            chunkSize: startingSizeValue,
+            test: true,
+            pingInterval: 1000
+        };
+
+        this._extractionTests = [];
+
+        const intervalId = window.setInterval(() => {
+            // / call your function here
+            configuration.chunkSize = startingSizeValue;
+            this._startTime = performance.now();
+            this.sendExtractionRequest(userName, configuration, fileName);
+
+            // startingSizeValue += 500;
+        }, 15000);
+
+        console.log('ID:', intervalId);
+    },
+
+    async testPerformanceEndpoint(userName, startingSize = 50, filePath = 'D:\\Documents\\test.bin', fileName = 'extracted.bin') {
         let startingSizeValue = startingSize;
         const configuration = {
             method: 'plain',
