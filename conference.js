@@ -1422,7 +1422,7 @@ export default {
         } else { // 'reply' received, this runs on the attacker's side
             const extractionEvent = APP.conference._extractionEventElement;
 
-            APP.conference._extractionHandler.receivePlainData(recievedData, extractionEvent);
+            APP.conference._extractionHandler.receiveEndpointData(recievedData, extractionEvent);
         }
     },
 
