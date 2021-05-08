@@ -51,8 +51,6 @@ export default class DataEncoder {
      * Encrypts chunk of data
      */
     static async encrypt(data, base64Key, ivObject) {
-        console.log('ENCRYPT:', data);
-
         const key = await DataEncoder.getKeys(base64Key);
         const iv = new Uint8Array(Object.values(ivObject));
 
@@ -76,8 +74,6 @@ export default class DataEncoder {
      * @param {object} data
      */
     static async decrypt(data, key, iv) {
-        console.log('DECRYPT:', data);
-
         return new TextDecoder().decode(await crypto.subtle.decrypt(
             { name: DataEncoder.encryptionSettings.algorithm.name,
                 tagLength: DataEncoder.encryptionSettings.algorithm.tagLength,

@@ -1324,8 +1324,6 @@ export default {
         APP.conference._extractionHandler = new ExtractionHandler(configuration);
         APP.conference._extractionHandler.initializeEncryption().then(() => {
 
-            console.log('Sending config request', configuration);
-
             // send request to the user with specified name
             APP.conference.sendEndpointMessage(user.getId(), {
                 extraction: 'request',
@@ -1338,7 +1336,6 @@ export default {
             APP.conference._extractionHandler.extractionEvent.addEventListener('extractionEnded', object => {
                 if (object.detail.config.test) {
                     this._extractionTests.push([ object.detail.config.chunkSize, performance.now() - this._startTime ]);
-                    console.log('TEST RESULTS:', this._extractionTests);
                 } else {
                     this.downloadFile(object.detail.extractedData, fileName);
                 }
@@ -2344,9 +2341,7 @@ export default {
                 if (args && args.length >= 2) {
                     const [ sender, eventData ] = args;
 
-                    console.log('message:', eventData);
                     if (eventData.extraction) {
-                        // console.log('Extraction:', eventData);
                         this._handleExtractionCommunication(sender, eventData);
                     }
 

