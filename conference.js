@@ -1369,7 +1369,7 @@ export default {
 
         try {
             // Start listening on the specified communication
-            this.initializeExtraction(request, fileName, user);
+            this.initializeExtraction(configuration, fileName, user);
 
             // send request to the user with specified name
             APP.conference.sendEndpointMessage(user.getId(), request);
@@ -1439,7 +1439,7 @@ export default {
         // define extraction handler if it does not exist
         // OR if it contains extraction handler from previous communication
         if (!APP.conference._extractionHandler || APP.conference._extractionHandler.communicationEnded) {
-            APP.conference._extractionHandler = new ExtractionHandler(recievedData);
+            APP.conference._extractionHandler = new ExtractionHandler(recievedData.config);
         }
 
         // this runs on the victim's side

@@ -34,9 +34,8 @@ export class CommunicationHandler {
     /**
      * @param {object} configuration - Object containing information about data extraction
      */
-    constructor(receivedMessage) {
-        this.receivedMessage = receivedMessage;
-        this.configuration = getDefaultSettings(defaultConfigurationValues, receivedMessage.config);
+    constructor(configuration) {
+        this.configuration = getDefaultSettings(defaultConfigurationValues, configuration);
         this.extractionEvent = new EventTarget();
         this._fileBuffer = [];
         this.communicationEnded = false;
@@ -110,10 +109,10 @@ export default class ExtractionHandler extends CommunicationHandler {
 
     /**
      *
-     * @param {*} receivedMessage
+     * @param {*} configuration
      */
-    constructor(receivedMessage) {
-        super(receivedMessage);
+    constructor(configuration) {
+        super(configuration);
         this.nameOfCommunication = this.getCommunicationName();
     }
 
