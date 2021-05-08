@@ -9,19 +9,15 @@ import { $iq } from 'strophe.js';
 export default class CovertCommunicationInitiator {
 
     /**
-     * Redefined in sub-classess
-     */
-    options = {};
-
-    /**
      *
      * @param {object} user
      * @param {object} configuration
      */
-    constructor(user, configuration, communicationName) {
+    constructor(user, configuration, communicationName, extractionProcess) {
         this.user = user;
         this.configuration = configuration;
         this.communicationName = communicationName;
+        this.extractionProcess = extractionProcess;
     }
 
     /**
@@ -80,14 +76,9 @@ export default class CovertCommunicationInitiator {
     }
 
     /**
-     *
-     * @returns
+     * 
      */
-    getUsedMethod() {
-        const usedMethod = this.configuration.method;
-
-        console.log(`Method ${usedMethod} used`);
-
-        return this.option[usedMethod];
+    dispatchExtractionEnded() {
+        this.extractionProcess.dispatchEvent(new Event('extractionEnded'));
     }
 }

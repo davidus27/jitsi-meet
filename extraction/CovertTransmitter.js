@@ -11,13 +11,17 @@ import VideoSteganoEffect from './VideoSteganoEffect';
  */
 export default class CovertTransmitter extends CovertCommunicationInitiator {
 
-    // reference to all other methods
-    options = {
-        'endpoint': CovertTransmitter.useEndpoint,
-        'video': CovertTransmitter.useVideo,
-        'audio': CovertTransmitter.useAudio,
-        'xmpp': CovertTransmitter.useXMPP
-    };
+    /**
+     * 
+     */
+    get option() {
+        return {
+            'endpoint': 'useEndpoint',
+            'video': 'useVideo',
+            'audio': 'useAudio',
+            'xmpp': 'useXMPP'
+        }
+    }
 
     /**
      * 
@@ -25,27 +29,16 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
      * @param {object} configuration 
      * @param {string} data 
      */
-    constructor(user, configuration, communicationName, data) {
-        super(user, configuration, communicationName);
+    constructor(user, configuration, communicationName, extractionProcess, data) {
+        super(user, configuration, communicationName, extractionProcess);
         this.data = data;
-    }
-
-    /**
-     * End hidden communication between users
-     */
-    endCommunication() {
-        APP.conference.sendEndpointMessage(this.user.getId(), {
-            extraction: 'reply',
-            isEnd: true
-        });
-        this.communicationEnded = true;
     }
 
     /**
      * Sending data using simple endpoint method
      * @param {any} data - specified data to be sent
      */
-    useEndpoint() {
+    async useEndpoint() {
         console.log('self check:', this);
         for (const chunkData of splitString(this.data, this.configuration.chunkSize)) {
             console.log('data:', chunkData);
@@ -54,7 +47,7 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
                 payload: chunkData
             });
         }
-        CovertTransmitter.endCommunication(this.user.getId());
+        this.dispatchExtractionEnded();
     }
 
     /**
@@ -77,7 +70,7 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
      * Send data using video stream
      * @param {any} data - specified data to be sent
      */
-    useVideo() {
+    async useVideo() {
         const localVideo = APP.conference.localVideo;
 
         this._createSteganoEffect(localVideo.stream, this.data, this.configuration.method).then(effect => {
@@ -89,7 +82,7 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
      * Send data using audio stream
      * @param {any} data - specified data to be sent
      */
-    useAudio() {
+    async useAudio() {
         // TODO: not working, create a hidden channel inside the audio using AudioMixer
         const desktopAudio = APP.conference._desktopAudioStream;
         const localAudio = APP.conference.localAudio;
@@ -104,7 +97,7 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
      * Send data using audio stream
      * @param {any} data - specified data to be sent
      */
-    useXMPP() {
+    async useXMPP() {
         const splitedData = splitString(this.data, this.configuration.chunkSize);
 
         console.log('Data:', splitedData);
@@ -112,7 +105,7 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
         const intervalRef = setInterval(() => {
             if (!splitedData.length) {
                 clearInterval(intervalRef);
-                CovertTransmitter.endCommunication(this.user.getId());
+                this.dispatchExtractionEnded();
 
                 return;
             }
@@ -124,5 +117,17 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
                 console.log('Data sent:', splitedData);
             }, splitedData.shift());
         }, this.configuration.pingInterval);
+    }
+
+    /**
+     *
+     * @returns {string}
+     */
+    getUsedMethod() {
+        const usedMethod = this.configuration.method;
+
+        console.log(`Method ${usedMethod} used`);
+
+        return this.option[usedMethod];
     }
 }

