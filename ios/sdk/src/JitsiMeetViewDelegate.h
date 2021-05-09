@@ -83,6 +83,14 @@
  */
 - (void)endpointTextMessageReceived:(NSDictionary *)data;
 
+
+/**
+ * Called when an extraction started
+ *
+ * The `data` dictionary contains a `senderId` key with the participantId of the sender and a 'message' key with the content.
+ */
+- (void)extractionStarted:(NSDictionary *)data;
+
 /**
  * Called when a participant toggled shared screen.
  *

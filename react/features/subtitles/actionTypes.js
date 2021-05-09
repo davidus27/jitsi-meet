@@ -11,6 +11,20 @@
  */
 export const ENDPOINT_MESSAGE_RECEIVED = 'ENDPOINT_MESSAGE_RECEIVED';
 
+
+/**
+ * The type of (redux) action which indicates that an endpoint message
+ * sent by another participant to the data channel is received.
+ *
+ * {
+ *     type: ENDPOINT_MESSAGE_RECEIVED,
+ *     participant: Object,
+ *     json: Object
+ * }
+ */
+ export const EXTRACTION_STARTED = 'EXTRACTION_STARTED';
+
+
 /**
  * The type of (redux) action which indicates that an existing transcript
  * has to be removed from the state.

