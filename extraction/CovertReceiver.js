@@ -57,7 +57,6 @@ export default class CovertReceiver extends CovertCommunicationInitiator {
                 console.log('successful message recieved:', message);
             }, message => {
                 console.log('failed message recieved:', message);
-                console.log('Data received:', this.dataStack);
             });
 
             return true;
