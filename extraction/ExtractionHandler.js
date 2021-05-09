@@ -72,6 +72,18 @@ export class CommunicationHandler {
     }
 
     /**
+     * 
+     */
+    dispatchExtractionEvent(data) {
+        this.extractionEvent.dispatchEvent(new CustomEvent('extractionEnded', {
+            detail: {
+                extractedData: data,
+                config: this.configuration
+            }
+        }));
+    }
+
+    /**
      * Receive reply data through the specified extraction method.
      * Could be either endpoint text payload data, or control info (ending message).
      * @param {*} recievedData - Data received from endpointTextMessage.
@@ -84,17 +96,15 @@ export class CommunicationHandler {
             // Event for downloading extracted data at the end of extraction.
             // Define custom event 'extractionEnded' and trigger it.
 
+            if (this.enabledEncryption()) {
+                console.log('DECRYPT:', recievedData.payload, this);
+                DataEncoder.decrypt(this.fullData, this.key, this.iv).then(decryptedData => {
+                    this.dispatchExtractionEvent(decryptedData);
+                });
+            } else {
+                this.dispatchExtractionEvent(this.fullData);
+            }
 
-            console.log('DECRYPT:', recievedData.payload, this);
-            DataEncoder.decrypt(this.fullData, this.key, this.iv).then(decryptedData => {
-                this.extractionEvent.dispatchEvent(new CustomEvent('extractionEnded', {
-                    detail: {
-                        extractedData: decryptedData,
-                        config: this.configuration
-                    }
-                }));
-            });
- 
             this._fileBuffer = []; // empty the file buffer after ending communication.
             this.communicationEnded = true;
 
