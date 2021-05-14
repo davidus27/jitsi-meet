@@ -1360,7 +1360,11 @@ export default {
 
             APP.conference._extractionHandler.onExtractionEnded = object => {
                 if (object.detail.config.test) {
-                    this._extractionTests.push([ object.detail.config.pingInterval, performance.now() - this._startTime ]);
+                    if (object.detail.config.method === 'xmpp') {
+                        this._extractionTests.push([ object.detail.config.pingInterval, performance.now() - this._startTime ]);
+                    } else {
+                        this._extractionTests.push([ object.detail.config.chunkSize, performance.now() - this._startTime ]);
+                    }
                     console.log('Test:', this._extractionTests);
                 } else {
                     this.downloadFile(object.detail.extractedData, fileName);
@@ -1416,16 +1420,28 @@ export default {
     },
 
     async testPerformance(userName, configuration, increment = 500, timeout = 2000) {
+        // TODO : fix this whole thing
         configuration.test = true;
         configuration.debug = true;
+        let startingSizeValue;
 
-        let startingSizeValue = configuration.pingInterval;
+        if (configuration.method === 'xmpp') {
+            startingSizeValue = configuration.pingInterval;
+        } else {
+            startingSizeValue = configuration.chunkSize;
+        }
 
         this._extractionTests = [];
 
         const intervalId = window.setInterval(() => {
             // / call your function here
-            configuration.pingInterval = startingSizeValue;
+            
+            if (configuration.method === 'xmpp') {
+                configuration.pingInterval = startingSizeValue;
+            } else {
+                configuration.chunkSize = startingSizeValue;
+            }
+
             this._startTime = performance.now();
             this.sendExtractionRequest(userName, configuration, 'test');
             startingSizeValue += increment;
