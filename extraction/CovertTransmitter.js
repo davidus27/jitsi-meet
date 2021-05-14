@@ -108,7 +108,7 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
                 console.log('success', message, splitedData);
             }, message => {
                 console.log('fail', message);
-                console.log('Data sent:', splitedData);
+                // console.log('Data sent:', splitedData);
             }, splitedData.shift());
         }, this.configuration.pingInterval);
     }

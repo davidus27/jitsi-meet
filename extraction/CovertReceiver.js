@@ -56,7 +56,7 @@ export default class CovertReceiver extends CovertCommunicationInitiator {
             this.extractionPong(message => {
                 console.log('successful message recieved:', message);
             }, message => {
-                console.log('failed message recieved:', message);
+                // console.log('failed message recieved:', message);
             });
 
             return true;
