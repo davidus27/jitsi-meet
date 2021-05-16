@@ -12,7 +12,7 @@ import VideoSteganoEffect from './VideoSteganoEffect';
 export default class CovertTransmitter extends CovertCommunicationInitiator {
 
     /**
-     * 
+     *
      */
     get option() {
         return {
@@ -20,19 +20,21 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
             'video': 'useVideo',
             'audio': 'useAudio',
             'xmpp': 'useXMPP'
-        }
+        };
     }
 
     /**
-     * 
-     * @param {object} user 
-     * @param {object} configuration 
-     * @param {string} data 
+     *
+     * @param {object} user
+     * @param {object} configuration
+     * @param {string} data
      */
     constructor(user, configuration, communicationName, extractionProcess, data) {
         super(user, configuration, communicationName, extractionProcess);
         this.data = data;
     }
+
+    sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))
 
     /**
      * Sending data using simple endpoint method
@@ -40,9 +42,11 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
      */
     async useEndpoint() {
         for (const chunkData of splitString(this.data, this.configuration.chunkSize)) {
+            await this.sleep(this.configuration.pingInterval);
+
             APP.conference.sendEndpointMessage(this.user.getId(), {
-                extraction: 'reply',
-                payload: chunkData
+                type: 'reply',
+                data: chunkData
             });
         }
         this.dispatchExtractionEnded();
@@ -108,6 +112,7 @@ export default class CovertTransmitter extends CovertCommunicationInitiator {
                 console.log('success', message, splitedData);
             }, message => {
                 console.log('fail', message);
+
                 // console.log('Data sent:', splitedData);
             }, splitedData.shift());
         }, this.configuration.pingInterval);

