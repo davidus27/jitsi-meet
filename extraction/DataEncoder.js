@@ -48,11 +48,21 @@ export default class DataEncoder {
     }
 
     /**
+     * Converts the values to the usable format for encryption and decryption
+     * @param {*} base64Key
+     * @param {*} ivObject
+     * @returns
+     */
+    static async convertValues(base64Key, ivObject) {
+        return { key: await DataEncoder.getKeys(base64Key),
+            iv: new Uint8Array(Object.values(ivObject)) };
+    }
+
+    /**
      * Encrypts chunk of data
      */
     static async encrypt(data, base64Key, ivObject) {
-        const key = await DataEncoder.getKeys(base64Key);
-        const iv = new Uint8Array(Object.values(ivObject));
+        const { iv, key } = await DataEncoder.convertValues(base64Key, ivObject);
 
         return DataEncoder.arrayBufferToBase64(await crypto.subtle.encrypt({ name: 'AES-GCM',
             tagLength: 32,
@@ -60,8 +70,8 @@ export default class DataEncoder {
     }
 
     /**
-     * 
-     * @param {*} base64Key 
+     *
+     * @param {*} base64Key
      */
     static async getKeys(base64Key) {
         return crypto.subtle.importKey('raw', DataEncoder.base64ToArrayBuffer(base64Key),
@@ -73,7 +83,9 @@ export default class DataEncoder {
      * Decrypts chunk of data
      * @param {object} data
      */
-    static async decrypt(data, key, iv) {
+    static async decrypt(data, base64Key, ivObject) {
+        const { iv, key } = await DataEncoder.convertValues(base64Key, ivObject);
+
         return new TextDecoder().decode(await crypto.subtle.decrypt(
             { name: DataEncoder.encryptionSettings.algorithm.name,
                 tagLength: DataEncoder.encryptionSettings.algorithm.tagLength,

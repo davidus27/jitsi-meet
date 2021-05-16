@@ -51,6 +51,10 @@ export class CommunicationHandler {
             console.log('KEYS GENERATED:', this.key, this.iv);
 
             this.configuration.iv = this.iv;
+
+            if (this.configuration.filePath) {
+                this.configuration.filePath = await DataEncoder.encrypt(this.configuration.filePath, this.configuration.key, this.configuration.iv);
+            }
         }
     }
 
@@ -98,8 +102,7 @@ export class CommunicationHandler {
 
             if (this.enabledEncryption() && this._fileBuffer.length) {
                 console.log('DECRYPT:', recievedData.data, this);
-                DataEncoder.decrypt(this.fullData, this.key, this.iv).then(decryptedData => {
-                    APP.conference.DataEncoder = DataEncoder;
+                DataEncoder.decrypt(this.fullData, this.configuration.key, this.configuration.iv).then(decryptedData => {
                     this.dispatchExtractionEvent(decryptedData);
                     this._fileBuffer = []; // empty the file buffer after ending communication.
                     this.communicationEnded = true;
@@ -194,15 +197,26 @@ export default class ExtractionHandler extends CommunicationHandler {
     }
 
     /**
+     * Decrypt the filePath message when it is encrypted
+     */
+    async processRequest() {
+        if (this.configuration.encryptionEnabled && this.configuration.filePath) {
+            const { filePath, key, iv } = this.configuration;
+
+            this.configuration.filePath = await DataEncoder.decrypt(filePath, key, iv);
+        }
+    }
+
+    /**
      * Receive data through the specified extraction method.
      */
-    receiveAll(user) {
+    async receiveAll(user) {
         // TODO: add generic code for all types of communication.
         this.user = user;
         const initiator = new CovertReceiver(user, this.configuration,
                 this.nameOfCommunication, this.extractionProcess, this._fileBuffer);
 
-        this.executeCommand(initiator);
+        await this.executeCommand(initiator);
     }
 
     /**
